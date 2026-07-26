@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interview Coach — Offline</title>
+  <!-- SEO Metadata -->
+  <meta name="description" content="Offline, privacy-first mock interview practice. Runs entirely on your machine against a local model — no network calls.">
+
+  <!-- Favicon (inline SVG, no remote fetch) -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+  <!-- Typography (Poppins & Inter) — self-hosted, no CDN -->
+  <link rel="stylesheet" href="vendor/fonts.css">
+
+  <!-- Styling -->
+  <link rel="stylesheet" href="styles.css?v=3">
+
+  <!-- Lucide Icons Library — vendored, pinned to v0.408.0 -->
+  <script src="vendor/lucide.min.js"></script>
+</head>
+<body>
+
+  <!-- App Shell -->
+  <div id="app-shell" class="app-shell sidebar-hidden">
+    
+    <!-- Left Sidebar -->
+    <aside id="app-sidebar" class="app-sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo">
+          <i data-lucide="sparkles" class="indigo-icon"></i>
+        </div>
+        <span class="brand-name">Interview <span class="accent-text">Coach</span></span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#/dashboard" class="nav-item active" id="nav-dashboard">
+          <i data-lucide="layout-dashboard"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="#/setup" class="nav-item" id="nav-setup">
+          <i data-lucide="play-circle"></i>
+          <span>Start Interview</span>
+        </a>
+        <a href="#/history" class="nav-item" id="nav-history">
+          <i data-lucide="history"></i>
+          <span>History</span>
+        </a>
+        <a href="#/analytics" class="nav-item" id="nav-analytics">
+          <i data-lucide="bar-chart-3"></i>
+          <span>Analytics</span>
+        </a>
+      </nav>
+    </aside>
+    
+    <!-- Main Shell Area -->
+    <div class="main-shell">
+      
+      <!-- Top Sticky Header Bar -->
+      <header id="app-header" class="app-header">
+        <div class="header-left">
+          <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle Navigation">
+            <i data-lucide="menu"></i>
+          </button>
+          <h1 id="page-title" class="page-title">Dashboard</h1>
+        </div>
+        
+        <div class="header-right">
+          <!-- Notification Bell -->
+          <div class="notification-container">
+            <button id="notification-bell" class="header-action-btn" aria-label="Notifications">
+              <i data-lucide="bell"></i>
+              <span class="notification-badge" id="notification-badge">2</span>
+            </button>
+            
+            <!-- Notifications Dropdown -->
+            <div id="notification-dropdown" class="notification-dropdown hidden">
+              <div class="dropdown-header">
+                <h3>Notifications</h3>
+                <button id="clear-notifications" class="ghost-btn-sm">Clear all</button>
+              </div>
+              <div class="dropdown-content" id="notifications-list">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+          </div>
+          
+          <!-- Profile Badge -->
+          <div class="profile-header-badge">
+            <div class="avatar-small" id="header-avatar">U</div>
+            <span class="user-name-header" id="header-username">You</span>
+          </div>
+        </div>
+      </header>
+      
+      <!-- Dynamic Main Content -->
+      <main id="app-view" class="app-view">
+        <!-- Rendered views will be injected here via JavaScript -->
+        <div class="view-loading-placeholder">
+          <div class="spinner"></div>
+          <p>Loading...</p>
+        </div>
+      </main>
+      
+    </div>
+  </div>
+
+  <!-- Global Confirm Exit Modal -->
+  <div id="exit-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="alert-icon-wrapper">
+          <i data-lucide="alert-triangle"></i>
+        </div>
+        <h2>End Interview Session?</h2>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to exit? Your progress for this interview will be lost and unanswered questions will affect your score.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="cancel-exit-btn" class="secondary-btn">Resume Interview</button>
+        <button id="confirm-exit-btn" class="danger-btn">End Interview</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Global Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Question Bank Data (roles, level rules, QUESTION_BANK) -->
+  <script src="question-bank.js?v=2"></script>
+  <!-- Local model + audio boundaries (mocked; see src/) -->
+  <script src="src/llm.js"></script>
+  <script src="src/audio.js"></script>
+  <!-- Core JavaScript Logic -->
+  <script src="app.js?v=5"></script>
+</body>
+</html>

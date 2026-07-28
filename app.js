@@ -922,7 +922,11 @@ async function startInterviewSession(setup) {
     roundType: null, roundCategoryLabel: "",
     questions: [], currentQuestionIndex: 0, answers: [],
     timeRemaining: 0, timerInterval: null,
-    hasInjectedFollowUp: false
+    // Whether a clarifying probe has already been used on the current topic;
+    // reset on topic change by loadInterviewQuestion().
+    probeUsed: false,
+    // Round-wide cap: at most 1 probe follow-up per round.
+    roundProbeCount: 0
   };
 
   showToast("Preparing your interview...", "info");
@@ -956,7 +960,11 @@ function beginRound(i) {
   s.questions = qs;
   s.currentQuestionIndex = 0;
   s.answers = [];
-  s.hasInjectedFollowUp = false;
+  s.probeUsed = false;
+  // Round-wide cap: at most 1 probe follow-up per round (Behavioral and
+  // System Design each get their own counter simply by virtue of this
+  // resetting every time a round begins).
+  s.roundProbeCount = 0;
   s.timeRemaining = type === "behavioral" ? rules.behavioralTimer : rules.systemDesignTimer;
   window.location.hash = "#/round";
 }
@@ -984,6 +992,16 @@ async function gradeAnswers(answers, roundType) {
     if (ans.userAnswer === "[Question Skipped]") {
       out.push({ question: ans.question, userAnswer: ans.userAnswer, score: 0,
         strengths: [], improvements: ["Question skipped."], modelAnswer: ans.modelAnswer, complexity: null, roundType });
+      continue;
+    }
+    // Already graded live by evaluateAndMaybeProbe() right after the answer
+    // was submitted — reuse it instead of calling evaluate() a second time.
+    if (ans.graded) {
+      const g = ans.graded;
+      out.push({ question: ans.question, userAnswer: ans.userAnswer, score: g.score,
+        strengths: g.strengths || [], improvements: g.improvements || [],
+        modelAnswer: g.modelAnswer || ans.modelAnswer, complexity: g.complexity || null,
+        feedback: g.feedback || "", roundType });
       continue;
     }
     try {
@@ -1334,6 +1352,10 @@ function loadInterviewQuestion() {
   const session = APP_STATE.currentInterview;
   const q = session.questions[session.currentQuestionIndex];
 
+  // A probe follow-up stays on the same topic as the question it was raised
+  // against; any other question starts a new topic, so the probe is reset.
+  if (!q.isProbeFollowUp) session.probeUsed = false;
+
   // Progress fill
   const percent = (session.currentQuestionIndex / session.questions.length) * 100;
   const progressFill = document.getElementById("interview-progress-fill-bar");
@@ -1391,86 +1413,66 @@ window.skipInterviewQuestion = function() {
   nextInterviewStep();
 };
 
-function getLocalFollowUp(questionText, userAnswer, category) {
-  const ansLower = (userAnswer || "").toLowerCase();
-  
-  if (category === "System Design") {
-    return {
-      id: "followup-local",
-      text: "How would that design change if traffic grew ten times? Talk through where it breaks first.",
-      category: "Adaptive Follow-up",
-      hint: "Name the first bottleneck, then the mitigation.",
-      modelAnswer: "Scaling limits and mitigations for the proposed design."
-    };
-  }
-
-  if (ansLower.includes("react") || ansLower.includes("state")) {
-    return {
-      id: "followup-local",
-      text: "You mentioned state management. Can you explain the difference between local component state and global state, and when to use each?",
-      category: "Adaptive Follow-up",
-      hint: "Think about React useState vs. Redux/Context API.",
-      modelAnswer: "Differences between local and global state storage."
-    };
-  }
-  
-  return {
-    id: "followup-local",
-    text: "Can you elaborate on any trade-offs or alternative options you considered for the solution you just described?",
-    category: "Adaptive Follow-up",
-    hint: "Discuss performance, code readability, or speed of development.",
-    modelAnswer: "Explanation of engineering trade-offs."
-  };
-}
-
-async function checkAndInjectFollowUp(userAnswer) {
+// Live-grades the answer just saved for the current question and, when the
+// model's levelSignal comes back "probe", queues a same-topic clarifying
+// follow-up. The grade is cached on the answer entry so gradeAnswers() can
+// reuse it at round-end instead of calling evaluate() a second time.
+async function evaluateAndMaybeProbe(userAnswer) {
   const session = APP_STATE.currentInterview;
   if (!session) return;
 
-  // Adaptive follow-ups only make sense in the Behavioral round.
-  if (session.roundType !== "behavioral") return;
-
-  // Only allow at most 1 follow-up question per round to keep duration balanced.
-  if (session.hasInjectedFollowUp) return;
-  
   const q = session.questions[session.currentQuestionIndex];
-  if (q.category === "Adaptive Follow-up") return;
-  
+  const category = session.roundType === "systemDesign" ? "System Design" : "Behavioral";
+  // A probe follow-up is always evaluated as probeUsed:true so it can only
+  // resolve to step_down (never loop back into another "probe").
+  const probeUsedForCall = q.isProbeFollowUp ? true : session.probeUsed;
+
+  let graded;
   try {
-    showToast("Analyzing answer for follow-up...", "info");
-    const data = await LLM.followup({
+    graded = await LLM.evaluate({
+      question: q.text, userAnswer, modelAnswer: q.modelAnswer, category, probeUsed: probeUsedForCall
+    });
+  } catch (err) {
+    console.error("Live evaluation failed, will grade at round end:", err);
+    return;
+  }
+
+  const answerEntry = session.answers[session.answers.length - 1];
+  answerEntry.graded = graded;
+
+  if (graded.levelSignal !== "probe") return;
+
+  // Round-wide cap: at most 1 probe follow-up per round. If it's already
+  // been used, a would-be probe falls through to step_down instead.
+  if (session.roundProbeCount >= 1) {
+    answerEntry.graded = { ...graded, levelSignal: "step_down" };
+    return;
+  }
+
+  try {
+    showToast("Answer needs more depth — asking a follow-up...", "info");
+    const { followup: followUp } = await LLM.followup({
       questionText: q.text,
-      userAnswer: userAnswer,
+      userAnswer,
       category: q.category || session.category,
-      role: session.role
+      role: session.roleName
     });
 
-    let followUpQ = null;
-    if (data && data.followup) {
-      followUpQ = {
-        id: data.followup.id,
-        text: data.followup.text,
-        category: data.followup.category,
-        hint: data.followup.hint,
-        modelAnswer: "A comprehensive tech explanation expanding on lookup structures, state updates, indexes, or metric tracking."
-      };
-    } else {
-      followUpQ = getLocalFollowUp(q.text, userAnswer, q.category || session.category);
-    }
+    if (!followUp) return;
 
-    if (followUpQ) {
-      session.questions.splice(session.currentQuestionIndex + 1, 0, followUpQ);
-      session.hasInjectedFollowUp = true;
-      showToast("Adaptive follow-up question queued!", "success");
-    }
+    session.questions.splice(session.currentQuestionIndex + 1, 0, {
+      id: followUp.id,
+      text: followUp.text,
+      category: followUp.category || "Adaptive Follow-up",
+      hint: followUp.hint,
+      modelAnswer: q.modelAnswer,
+      isProbeFollowUp: true
+    });
+    session.probeUsed = true;
+    session.roundProbeCount++;
+    showToast("Follow-up question queued", "success");
   } catch (err) {
-    console.error("Failed to fetch adaptive follow-up, using local fallback:", err);
-    const fallback = getLocalFollowUp(q.text, userAnswer, q.category || session.category);
-    if (fallback) {
-      session.questions.splice(session.currentQuestionIndex + 1, 0, fallback);
-      session.hasInjectedFollowUp = true;
-      showToast("Adaptive follow-up question queued (local offline)!", "success");
-    }
+    console.error("Follow-up request failed:", err);
   }
 }
 
@@ -1480,15 +1482,15 @@ window.submitInterviewAnswer = async function() {
     showToast("Please enter an answer or click Skip", "error");
     return;
   }
-  
+
   stopSpeaking();
   stopActiveSpeechRecognition();
   saveAnswer(ans);
   showToast("Answer saved successfully");
-  
-  // Analyze and potentially queue a follow-up question
-  await checkAndInjectFollowUp(ans);
-  
+
+  // Grade the answer now; a weak-and-not-yet-probed score queues a follow-up.
+  await evaluateAndMaybeProbe(ans);
+
   nextInterviewStep();
 };
 

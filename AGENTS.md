@@ -21,14 +21,33 @@ You serve the directory over HTTP and open it.
 | `question-bank.js` | Role metadata, level rules, and the interview questions |
 | `src/llm.js` | The **only** place the UI talks to a language model. Speaks to `llama-server` on localhost |
 | `src/audio.js` | The **only** place the UI does speech-to-text or text-to-speech. Speaks to the local audio sidecar |
+| `sidecar/` | Local Python process: captures the mic, detects end-of-turn, transcribes via `llama-server`. Binds `127.0.0.1` only |
 | `grammars/*.gbnf` | GBNF grammars that constrain the model's output shape |
 | `vendor/` | Self-hosted fonts and icons. Nothing is fetched from a CDN |
 | `baseline/` | Placeholder for offline comparison code. Not part of the running app |
 
-Two boundaries matter, and they are the reason the app stays honest:
+### Who is allowed to call the model
 
-- **`src/llm.js` is the model boundary.** Every scoring, follow-up, and
-  coaching request goes through it. No other file may call the model.
+There are **exactly two** callers of `llama-server`, and they use different
+endpoints for different reasons:
+
+| Caller | Endpoint | What for |
+|---|---|---|
+| `src/llm.js` | `POST /completion` | Grammar-constrained text — scoring, follow-ups, coaching. Sends a GBNF grammar on every request |
+| `sidecar/` | `POST /v1/chat/completions` | Audio transcription — sends base64 wav in an `input_audio` content block |
+
+**No third caller may be added.** If new functionality needs the model, it goes
+through one of these two or it does not happen.
+
+**The browser never calls `llama-server` directly for audio.** The page cannot
+open a microphone through `pw-record`, so all capture and transcription happens
+in the sidecar; `src/audio.js` talks only to the sidecar over a local
+WebSocket, and the sidecar talks to `llama-server`.
+
+Two front-end boundaries hold regardless:
+
+- **`src/llm.js` is the text-model boundary.** Every scoring, follow-up, and
+  coaching request from the UI goes through it.
 - **`src/audio.js` is the audio boundary.** Every microphone read and every
   spoken output goes through it. No other file may touch audio.
 

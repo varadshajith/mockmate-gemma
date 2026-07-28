@@ -954,6 +954,8 @@ function beginRound(i) {
   s.currentQuestionIndex = 0;
   s.answers = [];
   s.hasInjectedFollowUp = false;
+  s.probedSlot = null;
+  s.lastBaseAnswerText = "";
   s.timeRemaining = type === "behavioral" ? rules.behavioralTimer : rules.systemDesignTimer;
   window.location.hash = "#/round";
 }
@@ -1166,17 +1168,7 @@ function viewInterview() {
                 <span id="ai-status-text">Webcam & Voice Active</span>
               </div>
               
-              <div class="ai-details-panel">
-                <h4>Simulated AI Eye Tracking</h4>
-                <div class="tip-item">
-                  <i data-lucide="shield-check" style="color:var(--success);"></i>
-                  <span>Keep eye contact with the mesh circle for optimal focus metrics.</span>
-                </div>
-                <div class="tip-item">
-                  <i data-lucide="mic" style="color:var(--primary);"></i>
-                  <span>Speak clearly. Micro-checks detect speech confidence levels.</span>
-                </div>
-              </div>
+              <div id="state-card-wrapper" class="state-card-wrapper"></div>
             ` : `
               <div class="ai-avatar-container">
                 <div class="ai-avatar-wave"></div>
@@ -1192,17 +1184,7 @@ function viewInterview() {
                 <span id="ai-status-text">Listening</span>
               </div>
               
-              <div class="ai-details-panel">
-                <h4>Coach Tips</h4>
-                <div class="tip-item">
-                  <i data-lucide="check-circle-2"></i>
-                  <span>Take your time to structure your thoughts before you start speaking.</span>
-                </div>
-                <div class="tip-item">
-                  <i data-lucide="check-circle-2"></i>
-                  <span>Use 'Ctrl + Enter' shortcut to submit your answers quickly.</span>
-                </div>
-              </div>
+              <div id="state-card-wrapper" class="state-card-wrapper"></div>
             `}
           </div>
         </div>
@@ -1290,6 +1272,7 @@ function viewInterview() {
   if (input) {
     input.addEventListener("input", () => {
       if (counter) counter.innerText = `${input.value.length} / 2000 characters`;
+      drawLiveStateCard();
     });
     // Shortcuts
     input.addEventListener("keydown", (e) => {
@@ -1325,6 +1308,171 @@ function updateTimerDisplay() {
       box.className = "timer-box";
     }
   }
+}
+// ==========================================
+// 3.5 Answer Structure (State Card) Analysis
+// ==========================================
+const SLOT_DEFINITIONS = {
+  behavioral: [
+    {
+      id: "situation",
+      name: "Situation",
+      desc: "Setting the context and background",
+      filled: ["when i was", "at my last", "previous company", "during my project", "the situation was", "our team was building", "client requested"],
+      vague: ["project", "team", "client", "problem", "started", "company"]
+    },
+    {
+      id: "task",
+      name: "Task",
+      desc: "Objective and target goals",
+      filled: ["my task was", "objective was", "i had to", "we needed to", "the goal was", "responsible for"],
+      vague: ["need", "goal", "should", "task", "job"]
+    },
+    {
+      id: "action",
+      name: "Action",
+      desc: "Specific actions you took",
+      filled: ["i created", "i developed", "i designed", "i implemented", "i resolved", "i sat down", "we debugged", "i setup"],
+      vague: ["created", "built", "implemented", "resolved", "helped", "did"]
+    },
+    {
+      id: "result",
+      name: "Result",
+      desc: "Outcome and key metrics",
+      filled: ["result was", "improved by", "led to", "increased by", "successfully", "saved", "completion"],
+      vague: ["result", "ended", "done", "worked", "happy"]
+    }
+  ],
+  systemDesign: [
+    {
+      id: "definition",
+      name: "Definition",
+      desc: "Core terms and concepts",
+      filled: ["is a", "refers to", "stands for", "can be defined", "primarily means", "concept of"],
+      vague: ["means", "is", "about", "term"]
+    },
+    {
+      id: "mechanism",
+      name: "Mechanism",
+      desc: "How components interact",
+      filled: ["how it works", "using", "under the hood", "mechanism", "through a", "works by", "process of"],
+      vague: ["works", "runs", "via", "process"]
+    },
+    {
+      id: "tradeoff",
+      name: "Tradeoff",
+      desc: "Architectural trade-offs and limits",
+      filled: ["trade-off", "tradeoff", "but", "however", "bottleneck", "pros and cons", "downsides", "alternative", "cost of"],
+      vague: ["although", "con", "pro", "hand", "worse", "better"]
+    },
+    {
+      id: "experience",
+      name: "Experience",
+      desc: "Real-world tech applications",
+      filled: ["used this in", "in my experience", "i saw this", "project where", "production environment", "last company we used"],
+      vague: ["used", "saw", "know", "experience"]
+    }
+  ]
+};
+
+function getSlotStatus(text, filledKeywords, vagueKeywords) {
+  const t = (text || "").toLowerCase();
+  let filledCount = 0;
+  let vagueCount = 0;
+
+  for (const kw of filledKeywords) {
+    if (t.includes(kw)) filledCount++;
+  }
+  for (const kw of vagueKeywords) {
+    if (t.includes(kw)) vagueCount++;
+  }
+
+  if (filledCount >= 2 || (filledCount >= 1 && vagueCount >= 2)) {
+    return "filled";
+  } else if (filledCount === 1 || vagueCount >= 1) {
+    return "vague";
+  } else {
+    return "missing";
+  }
+}
+
+function drawLiveStateCard() {
+  const session = APP_STATE.currentInterview;
+  if (!session) return;
+  
+  const wrappers = document.querySelectorAll(".state-card-wrapper");
+  if (wrappers.length === 0) return;
+  
+  const isSD = session.roundType === "systemDesign";
+  const slots = isSD ? SLOT_DEFINITIONS.systemDesign : SLOT_DEFINITIONS.behavioral;
+  const title = isSD ? "Technical Depth Analyzer" : "Answer Structure Tracker";
+  const titleIcon = isSD ? "shield-check" : "sparkles";
+  
+  const currentQ = session.questions[session.currentQuestionIndex];
+  const isFollowUp = currentQ && currentQ.category === "Adaptive Follow-up";
+  const textarea = document.getElementById("interview-answer-input");
+  const text = textarea ? textarea.value : "";
+  
+  let html = `
+    <div class="state-card-title">
+      <i data-lucide="${titleIcon}"></i>
+      <span>${title}</span>
+    </div>
+    <div class="slot-list">
+  `;
+  
+  slots.forEach(slot => {
+    let status = "missing";
+    let isProbed = false;
+    
+    if (isFollowUp) {
+      const lastBaseText = session.lastBaseAnswerText || "";
+      const baseStatus = getSlotStatus(lastBaseText, slot.filled, slot.vague);
+      
+      if (session.probedSlot === slot.id) {
+        isProbed = true;
+        const followUpAddressed = getSlotStatus(text, slot.filled, slot.vague);
+        if (followUpAddressed === "filled") {
+          status = "filled";
+        } else if (followUpAddressed === "vague" || baseStatus === "vague") {
+          status = "vague";
+        } else {
+          status = baseStatus;
+        }
+      } else {
+        status = baseStatus;
+      }
+    } else {
+      status = getSlotStatus(text, slot.filled, slot.vague);
+    }
+    
+    const iconChar = status === "filled" ? "✓" : (status === "vague" ? "~" : "✗");
+    const iconClass = status;
+    
+    html += `
+      <div class="slot-row ${isProbed ? 'probed' : ''}">
+        <div class="slot-info">
+          <div class="slot-icon ${iconClass}">
+            <span>${iconChar}</span>
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span class="slot-name">${slot.name}</span>
+            </div>
+            <div class="slot-desc">${slot.desc}</div>
+          </div>
+        </div>
+        ${isProbed ? `<span class="probing-badge">Probing...</span>` : ''}
+      </div>
+    `;
+  });
+  
+  html += `</div>`;
+  wrappers.forEach(wrapper => {
+    wrapper.innerHTML = html;
+  });
+  
+  lucide.createIcons();
 }
 
 function loadInterviewQuestion() {
@@ -1369,6 +1517,9 @@ function loadInterviewQuestion() {
   if (session.aiVoiceEnabled) {
     speakText(q.text);
   }
+
+  // Draw the initial state card
+  drawLiveStateCard();
 }
 
 window.revealQuestionHint = function() {
@@ -1483,8 +1634,51 @@ window.submitInterviewAnswer = async function() {
   saveAnswer(ans);
   showToast("Answer saved successfully");
   
-  // Analyze and potentially queue a follow-up question
-  await checkAndInjectFollowUp(ans);
+  const session = APP_STATE.currentInterview;
+  const currentQ = session.questions[session.currentQuestionIndex];
+
+  if (currentQ && currentQ.category !== "Adaptive Follow-up" && !session.hasInjectedFollowUp) {
+    // Determine the probed slot
+    const isSD = session.roundType === "systemDesign";
+    const slots = isSD ? SLOT_DEFINITIONS.systemDesign : SLOT_DEFINITIONS.behavioral;
+    session.probedSlot = null;
+    session.lastBaseAnswerText = ans;
+
+    for (const slot of slots) {
+      const status = getSlotStatus(ans, slot.filled, slot.vague);
+      if (status === "missing" || status === "vague") {
+        session.probedSlot = slot.id;
+        break;
+      }
+    }
+
+    // Force follow-up injection if we found an incomplete slot
+    if (session.probedSlot) {
+      if (isSD) {
+        const slotName = slots.find(s => s.id === session.probedSlot).name;
+        const followUpQ = {
+          id: "followup-sd",
+          text: `You explained the system design, but the ${slotName} aspect was unclear. Can you expand on the ${slotName} and the details surrounding it?`,
+          category: "Adaptive Follow-up",
+          hint: `Add details for the missing slot: ${slotName}.`,
+          modelAnswer: `Detailed explanation covering the slot ${slotName}.`
+        };
+        session.questions.splice(session.currentQuestionIndex + 1, 0, followUpQ);
+        session.hasInjectedFollowUp = true;
+        showToast(`Probing missing ${slotName}...`, "info");
+      } else {
+        await checkAndInjectFollowUp(ans);
+      }
+    } else {
+      // Backwards compatibility/default fallback triggers if everything was filled
+      await checkAndInjectFollowUp(ans);
+    }
+  } else {
+    // Reset state flags after the follow-up question finishes
+    session.hasInjectedFollowUp = false;
+    session.probedSlot = null;
+    session.lastBaseAnswerText = "";
+  }
   
   nextInterviewStep();
 };
@@ -2355,6 +2549,7 @@ window.toggleSpeechToText = function() {
     textarea.value = originalText + transcript;
     const counter = document.getElementById("char-counter-text");
     if (counter) counter.innerText = `${textarea.value.length} / 2000 characters`;
+    drawLiveStateCard();
 
     if (!LocalAudio.isListening()) {
       btn.classList.remove("recording");

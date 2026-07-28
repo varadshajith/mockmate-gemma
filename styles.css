@@ -3392,3 +3392,124 @@ body.dark-theme .dropdown-item:hover {
   .role-grid { grid-template-columns: repeat(2, 1fr); }
   .mode-grid { grid-template-columns: 1fr; }
 }
+
+/* State Card Component */
+.state-card-wrapper {
+  margin-top: 20px;
+  background-color: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.state-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.state-card-title i {
+  color: var(--primary);
+  width: 18px;
+  height: 18px;
+}
+
+.slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.slot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg);
+  border: 1px solid var(--surface-border);
+  transition: all 0.25s ease;
+}
+
+.slot-row.probed {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+  animation: pulse-probed 2s infinite alternate;
+}
+
+@keyframes pulse-probed {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.025); }
+}
+
+.slot-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.slot-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: bold;
+  transition: all 0.25s ease;
+}
+
+.slot-icon.filled {
+  background-color: var(--success-light);
+  color: var(--success);
+}
+
+.slot-icon.vague {
+  background-color: var(--warning-light);
+  color: var(--warning);
+}
+
+.slot-icon.missing {
+  background-color: var(--error-light);
+  color: var(--error);
+}
+
+.slot-name {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text-main);
+}
+
+.slot-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.probing-badge {
+  font-size: 10.5px;
+  background-color: var(--primary);
+  color: var(--surface);
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  animation: pulse-text 1.2s infinite alternate;
+}
+
+@keyframes pulse-text {
+  0% { opacity: 0.65; }
+  100% { opacity: 1; }
+}

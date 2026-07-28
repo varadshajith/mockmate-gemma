@@ -2592,10 +2592,73 @@ window.replayQuestionAudio = function() {
   }
 };
 
+// Dynamic loading of interview_questions.json to populate local QUESTION_BANK
+async function loadExternalQuestions() {
+  try {
+    const response = await fetch("interview_questions.json");
+    if (!response.ok) throw new Error("Failed to load interview_questions.json");
+    const data = await response.json();
+    populateQuestionBank(data);
+    console.log("Successfully loaded external questions from interview_questions.json");
+  } catch (err) {
+    console.error("Failed to fetch interview questions:", err);
+  }
+}
+
+function populateQuestionBank(data) {
+  if (!data || !data.domains) return;
+  const diffMap = {
+    "easy": "easy",
+    "moderate": "medium",
+    "hard": "advanced"
+  };
+  
+  for (const domain in data.domains) {
+    if (!QUESTION_BANK[domain]) {
+      QUESTION_BANK[domain] = {
+        easy: { behavioral: [], systemDesign: [] },
+        medium: { behavioral: [], systemDesign: [] },
+        advanced: { behavioral: [], systemDesign: [] }
+      };
+    }
+    
+    data.domains[domain].forEach(q => {
+      const level = diffMap[q.difficulty] || "easy";
+      const qText = q.question || q.text;
+      const qHint = q.hint || (q.expected_answer_length_sec ? `Target duration: ${q.expected_answer_length_sec}s.` : "");
+      
+      let qModelAnswer = "";
+      if (q.reference_answers) {
+        qModelAnswer = q.reference_answers.score_9 || q.reference_answers.score_6 || "";
+      } else {
+        qModelAnswer = q.modelAnswer || "";
+      }
+      
+      const mappedQ = {
+        id: q.id,
+        text: qText,
+        hint: qHint,
+        modelAnswer: qModelAnswer,
+        shape: q.shape,
+        difficulty: q.difficulty,
+        probes: q.probes
+      };
+      
+      const round = q.shape === "STAR" ? "behavioral" : "systemDesign";
+      
+      const existing = QUESTION_BANK[domain][level][round];
+      if (!existing.some(eq => eq.id === q.id)) {
+        existing.push(mappedQ);
+      }
+    });
+  }
+}
+
 // ==========================================
 // 4. Initializing & Bootstrapping
 // ==========================================
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await loadExternalQuestions();
   loadStateFromStorage();
   initAppShell();
 });

@@ -142,7 +142,17 @@ function getRoundQuestions(roleId, level, round) {
   const role = getRole(roleId);
   const sourceId = QUESTION_BANK[roleId] ? roleId : role.fallback;
   const lvl = QUESTION_BANK[sourceId] && QUESTION_BANK[sourceId][level];
-  const arr = lvl && lvl[round];
+  let arr = lvl && lvl[round];
+  
+  if (!arr || arr.length === 0) {
+    if (round === "behavioral") {
+      const hrLvl = QUESTION_BANK["hr"] && QUESTION_BANK["hr"][level];
+      arr = hrLvl && hrLvl[round];
+    } else if (round === "systemDesign") {
+      const sdLvl = QUESTION_BANK["system_design"] && QUESTION_BANK["system_design"][level];
+      arr = sdLvl && sdLvl[round];
+    }
+  }
   return Array.isArray(arr) ? arr : [];
 }
 

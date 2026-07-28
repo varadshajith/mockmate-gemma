@@ -1396,6 +1396,14 @@ function getSlotStatus(text, filledKeywords, vagueKeywords) {
   }
 }
 
+function isTechnicalQuestion(q, roundType) {
+  if (!q) return roundType === "systemDesign";
+  const cat = (q.category || "").toLowerCase();
+  if (cat.includes("behavior")) return false;
+  if (cat.includes("design") || cat.includes("tech") || cat.includes("code") || cat.includes("system") || cat.includes("architecture")) return true;
+  return roundType === "systemDesign";
+}
+
 function drawLiveStateCard() {
   const session = APP_STATE.currentInterview;
   if (!session) return;
@@ -1403,12 +1411,12 @@ function drawLiveStateCard() {
   const wrappers = document.querySelectorAll(".state-card-wrapper");
   if (wrappers.length === 0) return;
   
-  const isSD = session.roundType === "systemDesign";
+  const currentQ = session.questions[session.currentQuestionIndex];
+  const isSD = isTechnicalQuestion(currentQ, session.roundType);
   const slots = isSD ? SLOT_DEFINITIONS.systemDesign : SLOT_DEFINITIONS.behavioral;
   const title = isSD ? "Technical Depth Analyzer" : "Answer Structure Tracker";
   const titleIcon = isSD ? "shield-check" : "sparkles";
   
-  const currentQ = session.questions[session.currentQuestionIndex];
   const isFollowUp = currentQ && currentQ.category === "Adaptive Follow-up";
   const textarea = document.getElementById("interview-answer-input");
   const text = textarea ? textarea.value : "";
@@ -1639,7 +1647,7 @@ window.submitInterviewAnswer = async function() {
 
   if (currentQ && currentQ.category !== "Adaptive Follow-up" && !session.hasInjectedFollowUp) {
     // Determine the probed slot
-    const isSD = session.roundType === "systemDesign";
+    const isSD = isTechnicalQuestion(currentQ, session.roundType);
     const slots = isSD ? SLOT_DEFINITIONS.systemDesign : SLOT_DEFINITIONS.behavioral;
     session.probedSlot = null;
     session.lastBaseAnswerText = ans;

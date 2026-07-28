@@ -89,7 +89,36 @@ const QUESTION_BANK = {
     advanced: { behavioral: [], systemDesign: [] }
   },
   backend: {
-    easy:     { behavioral: [], systemDesign: [] },
+    easy: {
+      behavioral: [
+        {
+          text: "Tell me about a challenging bug you had to debug in a backend service.",
+          hint: "Explain the stack trace, how you found it, and how your fix prevented it from happening again.",
+          modelAnswer: "I resolved a memory leak in our server handling high connections. Using profiling tools, I traced it to unclosed DB client sessions.",
+          shape: "STAR"
+        },
+        {
+          text: "Tell me about a time a production issue happened on your watch. What did you do?",
+          hint: "Set the scene, explain your specific responsibility, what action you took, and what the final output was.",
+          modelAnswer: "Our API was throwing 500s because a locking batch job locked a table. I manually killed the query, users were unblocked, and I batched the cron job next day.",
+          shape: "STAR"
+        }
+      ],
+      systemDesign: [
+        {
+          text: "What's the difference between SQL and NoSQL databases, and when would you choose one over the other?",
+          hint: "Explain schemas, scalability properties, consistency guarantees (ACID), and give concrete examples.",
+          modelAnswer: "SQL databases use structured tables and adhere to ACID transactions. NoSQL databases are schema-less documents/graphs designed for flexible iterations and horizontal scaling.",
+          shape: "Technical"
+        },
+        {
+          text: "What does an index do in a database, and why can't you just index everything?",
+          hint: "Explain sorted lookup structures, write performance costs, and storage trade-offs.",
+          modelAnswer: "An index is a sorted lookup tree that speeds up query lookups (O(log N)), but it slows down insert/update queries because the index itself must be updated on every write.",
+          shape: "Technical"
+        }
+      ]
+    },
     medium:   { behavioral: [], systemDesign: [] },
     advanced: { behavioral: [], systemDesign: [] }
   },

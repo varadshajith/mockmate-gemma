@@ -1479,8 +1479,8 @@ function drawLiveStateCard() {
           <div class="slot-icon ${iconClass}">
             <span>${iconChar}</span>
           </div>
-          <div>
-            <div style="display: flex; align-items: center; gap: 6px;">
+          <div class="slot-text-content">
+            <div class="slot-name-container">
               <span class="slot-name">${slot.name}</span>
             </div>
             <div class="slot-desc">${slot.desc}</div>

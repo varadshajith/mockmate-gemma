@@ -3439,6 +3439,7 @@ body.dark-theme .dropdown-item:hover {
   background-color: var(--bg);
   border: 1px solid var(--surface-border);
   transition: all 0.25s ease;
+  min-width: 0;
 }
 
 .slot-row.probed {
@@ -3457,6 +3458,8 @@ body.dark-theme .dropdown-item:hover {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: 1;
+  min-width: 0;
 }
 
 .slot-icon {
@@ -3469,6 +3472,7 @@ body.dark-theme .dropdown-item:hover {
   font-size: 13px;
   font-weight: bold;
   transition: all 0.25s ease;
+  flex-shrink: 0;
 }
 
 .slot-icon.filled {
@@ -3486,16 +3490,33 @@ body.dark-theme .dropdown-item:hover {
   color: var(--error);
 }
 
+.slot-text-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  flex: 1;
+}
+
+.slot-name-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .slot-name {
   font-weight: 600;
   font-size: 13.5px;
   color: var(--text-main);
+  text-align: left;
 }
 
 .slot-desc {
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 1px;
+  text-align: left;
+  line-height: 1.4;
 }
 
 .probing-badge {
@@ -3506,7 +3527,9 @@ body.dark-theme .dropdown-item:hover {
   border-radius: var(--radius-pill);
   font-weight: 700;
   letter-spacing: 0.2px;
+  margin-left: 10px;
   animation: pulse-text 1.2s infinite alternate;
+  flex-shrink: 0;
 }
 
 @keyframes pulse-text {

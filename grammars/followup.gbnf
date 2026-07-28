@@ -1,0 +1,24 @@
+# Grammar for LLM.followup() in src/llm.js — constrains llama-server's
+# /completion output to a single JSON object matching the followup()
+# response shape exactly: {"followup": {...}} or {"followup": null}.
+
+root ::= (
+  "{" ws "\"followup\":" ws followup-value ws "}"
+)
+
+followup-value ::= followup-object | "null"
+
+followup-object ::= (
+  "{" ws
+  "\"id\":" ws string "," ws
+  "\"text\":" ws string "," ws
+  "\"category\":" ws string "," ws
+  "\"hint\":" ws string ws
+  "}"
+)
+
+string ::= "\"" char* "\""
+
+char ::= [^"\\\x7F\x00-\x1F] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
+
+ws ::= [ \t\n\r]*

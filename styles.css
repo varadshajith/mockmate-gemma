@@ -1079,7 +1079,7 @@ button {
 .welcome-banner-card {
   background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   border: none;
-  color: var(--surface);
+  color: #ffffff;
   position: relative;
   overflow: hidden;
   padding: 32px;
@@ -1092,14 +1092,14 @@ button {
 }
 
 .welcome-banner-card h2 {
-  color: var(--surface);
+  color: #ffffff;
   font-size: 28px;
   margin-bottom: 8px;
   letter-spacing: -0.5px;
 }
 
 .welcome-banner-card p {
-  color: var(--primary-light);
+  color: rgba(255, 255, 255, 0.85);
   font-size: 15px;
   margin-bottom: 24px;
 }
@@ -1110,22 +1110,24 @@ button {
 }
 
 .welcome-banner-card .btn-primary {
-  background-color: var(--surface);
+  background-color: #ffffff;
   color: var(--primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .welcome-banner-card .btn-primary:hover {
-  background-color: var(--primary-light);
+  background-color: rgba(255, 255, 255, 0.9);
 }
 
 .welcome-banner-card .btn-secondary {
   background-color: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.25);
-  color: var(--surface);
+  color: #ffffff;
 }
 
 .welcome-banner-card .btn-secondary:hover {
   background-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
 }
 
 .welcome-illustration {
@@ -1667,19 +1669,19 @@ button {
 
 .reveal-hint-btn {
   font-size: 13px;
-  color: var(--accent);
+  color: #22d3ee;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background-color: var(--accent-light);
+  background-color: rgba(6, 182, 212, 0.12);
   border-radius: var(--radius-sm);
-  border: 1px solid transparent;
+  border: 1px solid rgba(6, 182, 212, 0.25);
   transition: all 0.2s ease;
 }
 
 .reveal-hint-btn:hover {
-  background-color: #EDE9FE;
+  background-color: rgba(6, 182, 212, 0.25);
 }
 
 .question-hint-box {
@@ -1777,7 +1779,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--surface);
+  color: #ffffff;
   box-shadow: var(--shadow-md);
   z-index: 2;
 }
@@ -3535,7 +3537,7 @@ body.dark-theme .dropdown-item:hover {
 
 .slot-desc {
   font-size: 11px;
-  color: var(--text-muted);
+  color: #cbd5e1;
   margin-top: 1px;
   text-align: left;
   line-height: 1.4;
@@ -3544,7 +3546,7 @@ body.dark-theme .dropdown-item:hover {
 .probing-badge {
   font-size: 10.5px;
   background-color: var(--primary);
-  color: var(--surface);
+  color: #ffffff;
   padding: 3px 8px;
   border-radius: var(--radius-pill);
   font-weight: 700;

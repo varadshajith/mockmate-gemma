@@ -657,7 +657,7 @@ function drawGrowthChart(canvasId) {
   const h = canvas.height;
   
   // Draw helper grid lines
-  ctx.strokeStyle = "#F1F5F9";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
   ctx.lineWidth = 1;
   for (let i = 1; i <= 4; i++) {
     const y = (h - 30) * (i / 4);
@@ -683,7 +683,7 @@ function drawGrowthChart(canvasId) {
   });
   
   // Draw line
-  ctx.strokeStyle = "#4F46E5";
+  ctx.strokeStyle = "#06b6d4";
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
@@ -694,7 +694,7 @@ function drawGrowthChart(canvasId) {
   
   // Draw Points and Tooltips
   points.forEach(p => {
-    ctx.fillStyle = "#4F46E5";
+    ctx.fillStyle = "#06b6d4";
     ctx.beginPath();
     ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
     ctx.fill();
@@ -705,7 +705,7 @@ function drawGrowthChart(canvasId) {
     ctx.fill();
     
     // Label score above point
-    ctx.fillStyle = "#0F172A";
+    ctx.fillStyle = "#FFFFFF";
     ctx.font = "bold 11px Inter";
     ctx.fillText(`${p.score}%`, p.x - 10, p.y - 10);
   });
@@ -2374,7 +2374,7 @@ function drawBarChart(canvasId, items) {
   const padL = 34, padB = 42, padT = 10;
   const gw = w - padL - 12, gh = h - padB - padT;
 
-  ctx.strokeStyle = "#F1F5F9"; ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.08)"; ctx.lineWidth = 1;
   ctx.fillStyle = "#94A3B8"; ctx.font = "10px sans-serif"; ctx.textAlign = "right";
   for (let i = 0; i <= 4; i++) {
     const val = 100 - i * 25;
@@ -2391,9 +2391,9 @@ function drawBarChart(canvasId, items) {
     const y = padT + gh - bh;
     ctx.fillStyle = resolveColor(it.color);
     roundRect(ctx, x, y, bw, bh, 4); ctx.fill();
-    ctx.fillStyle = "#334155"; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "center";
+    ctx.fillStyle = "#ffffff"; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "center";
     ctx.fillText(it.value + "%", x + bw / 2, y - 4);
-    ctx.fillStyle = "#64748B"; ctx.font = "10px sans-serif";
+    ctx.fillStyle = "#94A3B8"; ctx.font = "10px sans-serif";
     ctx.fillText(truncLabel(it.label), x + bw / 2, padT + gh + 14);
   });
 }
@@ -2414,7 +2414,7 @@ function drawLineSeriesChart(canvasId, series, xCount) {
   const padL = 34, padB = 20, padT = 10;
   const gw = w - padL - 12, gh = h - padB - padT;
 
-  ctx.strokeStyle = "#F1F5F9"; ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.08)"; ctx.lineWidth = 1;
   ctx.fillStyle = "#94A3B8"; ctx.font = "10px sans-serif"; ctx.textAlign = "right";
   for (let i = 0; i <= 4; i++) {
     const y = padT + gh * (i / 4);

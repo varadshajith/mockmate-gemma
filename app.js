@@ -1398,9 +1398,25 @@ function getSlotStatus(text, filledKeywords, vagueKeywords) {
 
 function isTechnicalQuestion(q, roundType) {
   if (!q) return roundType === "systemDesign";
+  
+  // 1. Primary check: use the 'shape' property matching STAR or Technical
+  if (q.shape) {
+    const shapeStr = q.shape.toUpperCase();
+    if (shapeStr === "STAR") return false;
+    if (shapeStr === "TECHNICAL") return true;
+  }
+  
+  // 2. Secondary check: check category tag
   const cat = (q.category || "").toLowerCase();
   if (cat.includes("behavior")) return false;
   if (cat.includes("design") || cat.includes("tech") || cat.includes("code") || cat.includes("system") || cat.includes("architecture")) return true;
+  
+  // 3. Tertiary check: search keywords inside the question text prompt
+  const text = (q.text || q.question || "").toLowerCase();
+  if (text.includes("tell me about a time") || text.includes("describe a situation") || text.includes("disagreed")) return false;
+  if (text.includes("design") || text.includes("architecture") || text.includes("difference between") || text.includes("scaling") || text.includes("what does")) return true;
+  
+  // 4. Default fallback: round type
   return roundType === "systemDesign";
 }
 

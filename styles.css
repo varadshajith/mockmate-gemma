@@ -358,44 +358,56 @@ button {
   color: var(--text-light);
 }
 
-/* Profile dropdown */
-.profile-header-badge {
+/* Offline Status Badge */
+.offline-status-badge {
   display: flex;
   align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  padding: 6px 12px;
+  gap: 8px;
+  background-color: #EBF5FF;
+  color: #1E3A8A;
+  padding: 6px 14px;
   border-radius: var(--radius-pill);
-  transition: background-color 0.2s ease;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(30, 58, 138, 0.15);
+  user-select: none;
+}
+
+.offline-badge-text {
+  font-family: 'Poppins', sans-serif;
+  letter-spacing: -0.2px;
+}
+
+.offline-pulse-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #1E3A8A;
+  border-radius: 50%;
   position: relative;
+  display: inline-block;
 }
 
-.profile-header-badge:hover {
-  background-color: var(--bg);
+.offline-pulse-dot::after {
+  content: '';
+  width: 100%;
+  height: 100%;
+  background-color: #1E3A8A;
+  border-radius: 50%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  animation: pulse-ring 1.8s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
 }
 
-.avatar-small {
-  width: 32px;
-  height: 32px;
-  background-color: var(--primary);
-  color: var(--surface);
-  border-radius: var(--radius-pill);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.user-name-header {
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.chevron-user {
-  width: 16px;
-  height: 16px;
-  color: var(--text-muted);
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
 }
 
 .profile-dropdown {
@@ -3198,7 +3210,7 @@ body.dark-theme .dropdown-item:hover {
   a.btn,
   button,
   .notification-container,
-  .profile-header-badge {
+  .offline-status-badge {
     display: none !important;
   }
   

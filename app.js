@@ -194,9 +194,6 @@ function router() {
     shell.classList.add("sidebar-hidden");
   } else {
     shell.classList.remove("sidebar-hidden");
-    // Update Header profile info
-    document.getElementById("header-avatar").innerText = APP_STATE.user.name ? APP_STATE.user.name.charAt(0).toUpperCase() : 'U';
-    document.getElementById("header-username").innerText = APP_STATE.user.name || 'New User';
     // Highlight sidebar active item
     updateActiveSidebarItem(path);
   }

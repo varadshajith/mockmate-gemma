@@ -64,7 +64,27 @@ const QUESTION_BANK = {
   // `frontend` below is kept as the one worked example of the shape.
   // ─────────────────────────────────────────────────────────────────────────
   frontend: {
-    easy:     { behavioral: [], systemDesign: [] },
+    easy: {
+      behavioral: [
+        {
+          text: "Tell me about yourself and why you chose front-end development.",
+          hint: "Walk through your background, projects you've worked on, and your passion for visual design or user experience.",
+          modelAnswer: "I am a frontend developer who loves turning designs into interactive, high-performance web applications. I chose this field because I like the immediate visual feedback and the challenge of building user-friendly layouts."
+        },
+        {
+          text: "Describe a challenging frontend project you worked on recently.",
+          hint: "Talk about a specific technical challenge like state management, performance optimization, or responsive design and how you solved it.",
+          modelAnswer: "In my recent project, I built a dashboard application. The challenge was rendering a large list of dynamic items smoothly. I solved this by implementing virtual scrolling, which reduced the number of active DOM elements and improved rendering speed from 200ms to under 16ms."
+        }
+      ],
+      systemDesign: [
+        {
+          text: "Design a simple responsive product catalog page for an e-commerce site.",
+          hint: "Discuss grid/flexbox layouts, image optimization, lazy loading, and search/filter interactions.",
+          modelAnswer: "To design a product catalog page, I would structure it with a responsive grid layout that adapts from 1 column on mobile to 4 columns on desktop. I'd use lazy loading for image tags and debounced search triggers to fetch results from the API without overloading the backend."
+        }
+      ]
+    },
     medium:   { behavioral: [], systemDesign: [] },
     advanced: { behavioral: [], systemDesign: [] }
   },
@@ -79,7 +99,27 @@ const QUESTION_BANK = {
     advanced: { behavioral: [], systemDesign: [] }
   },
   hr: {
-    easy:     { behavioral: [], systemDesign: [] },
+    easy: {
+      behavioral: [
+        {
+          text: "Why do you want to join our company?",
+          hint: "Align your skills and research about the company's culture/values with your career goals.",
+          modelAnswer: "I want to join your company because of your commitment to offline accessibility and performance engineering. I align with your product principles and believe my skills in lightweight application architecture will contribute to your success."
+        },
+        {
+          text: "Tell me about a time you had to learn a helper tool or technology quickly.",
+          hint: "Describe a project deadline, what tool you learned, how you learned it, and what the positive outcome was.",
+          modelAnswer: "During a past hackathon, we needed to make our web app run completely offline, which required me to learn workbox and service workers in one day. I read the documentation and set up caching, enabling our demo to run seamlessly without internet."
+        }
+      ],
+      systemDesign: [
+        {
+          text: "Design a standard conflict-resolution framework for a distributed engineering team.",
+          hint: "Explain communication channels, mediation steps, documentation of shared decisions, and feedback loops.",
+          modelAnswer: "In a distributed team, I establish clear guidelines for communication: discuss technical questions in public channels, schedule video calls for unresolved blockers, write structural decisions as RFC documents, and conduct transparent retrospectives to gather continuous feedback."
+        }
+      ]
+    },
     medium:   { behavioral: [], systemDesign: [] },
     advanced: { behavioral: [], systemDesign: [] }
   }

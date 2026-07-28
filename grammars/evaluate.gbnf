@@ -18,7 +18,11 @@ root ::= (
 
 score ::= "0" | [1-9] [0-9]? | "100"
 
-string-array ::= "[" ws (string (ws "," ws string)*)? ws "]"
+# At least one item is required. An empty array renders as a section heading
+# above an empty list in the results panel — a silent blank the candidate has
+# no way to interpret. evaluate() substitutes an honest placeholder if one
+# ever gets through anyway.
+string-array ::= "[" ws string (ws "," ws string)* ws "]"
 
 complexity ::= string | "null"
 

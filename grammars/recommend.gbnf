@@ -11,7 +11,8 @@ root ::= (
   "}"
 )
 
-string-array ::= "[" ws (string (ws "," ws string)*)? ws "]"
+# At least one item is required — see the note in evaluate.gbnf.
+string-array ::= "[" ws string (ws "," ws string)* ws "]"
 
 string ::= "\"" char* "\""
 

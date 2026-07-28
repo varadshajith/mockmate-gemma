@@ -15,6 +15,94 @@ const LLM = (() => {
   const FOLLOWUP_GRAMMAR_PATH = "grammars/followup.gbnf";
   const RECOMMEND_GRAMMAR_PATH = "grammars/recommend.gbnf";
 
+  // Generous on purpose. A warm request is ~2.3s, but the first call after
+  // llama-server starts also pays for model warmup, and a tight timeout
+  // would fire on every cold start.
+  const REQUEST_TIMEOUT_MS = 60000;
+
+  // Substituted only if an empty array somehow survives the min-1-item
+  // grammar rule. Deliberately neutral: inventing praise or inventing a
+  // criticism to fill the slot would be a fabricated evaluation.
+  const NO_STRENGTHS_PLACEHOLDER = "No specific strengths identified in this answer.";
+  const NO_IMPROVEMENTS_PLACEHOLDER = "No specific improvements identified for this answer.";
+  const NO_FOCUS_AREAS_PLACEHOLDER = "No specific focus areas identified from this session.";
+
+  // Longest slice of a bad response body worth putting in an error message.
+  const ERROR_BODY_EXCERPT_CHARS = 300;
+
+  /**
+   * POST to llama-server's native /completion endpoint with a timeout.
+   * Throws a clear, caller-named error on timeout, transport failure, or a
+   * non-2xx status. Never returns a partial or synthesised result.
+   * @param {string} fnName name of the calling LLM function, for error text
+   * @param {object} body request payload
+   * @returns {Promise<object>} parsed llama-server envelope
+   */
+  async function postCompletion(fnName, body) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let res;
+    try {
+      res = await fetch(`${LLAMA_SERVER_URL}/completion`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        throw new Error(
+          `${fnName}(): llama-server did not respond within ${REQUEST_TIMEOUT_MS}ms — request timed out.`
+        );
+      }
+      throw new Error(`${fnName}(): could not reach llama-server at ${LLAMA_SERVER_URL} — ${err.message}`);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!res.ok) {
+      throw new Error(`${fnName}(): llama-server /completion failed: ${res.status} ${res.statusText}`);
+    }
+    return res.json();
+  }
+
+  /**
+   * Pull the generated text out of a llama-server response and JSON.parse it.
+   * Both steps can fail on a well-formed HTTP 200 (unexpected envelope shape,
+   * or output truncated at the n_predict ceiling mid-object), so both are
+   * reported with the function name and a truncated excerpt of what came back.
+   */
+  function parseCompletionContent(fnName, data) {
+    if (typeof data?.content !== "string") {
+      throw new Error(
+        `${fnName}(): llama-server response had no "content" string — got ${excerpt(JSON.stringify(data))}`
+      );
+    }
+    try {
+      return JSON.parse(data.content);
+    } catch (err) {
+      throw new Error(
+        `${fnName}(): could not parse model output as JSON (${err.message}) — raw response: ${excerpt(data.content)}`
+      );
+    }
+  }
+
+  function excerpt(text) {
+    const s = String(text ?? "");
+    return s.length > ERROR_BODY_EXCERPT_CHARS
+      ? `${s.slice(0, ERROR_BODY_EXCERPT_CHARS)}… (truncated)`
+      : s;
+  }
+
+  // The grammar requires at least one item, so this is a backstop rather than
+  // the primary defence. Passing [] to the UI renders a section heading over
+  // an empty list, which reads as a bug rather than as a finding.
+  function withPlaceholder(items, placeholder) {
+    const cleaned = Array.isArray(items) ? items.filter((s) => typeof s === "string" && s.trim()) : [];
+    return cleaned.length ? cleaned : [placeholder];
+  }
+
   // Fetched once and reused — the grammar files don't change at runtime.
   let evaluateGrammarPromise = null;
   function loadEvaluateGrammar() {
@@ -60,6 +148,41 @@ const LLM = (() => {
     return probeUsed ? "step_down" : "probe";
   }
 
+  // STAR, for the Behavioral round. The "I" vs "we" instruction matters more
+  // than it looks: a candidate describing a team's work in the first person
+  // plural is the most common way an answer sounds strong while saying nothing
+  // about what the candidate themselves actually did.
+  const BEHAVIORAL_RUBRIC = [
+    "Grade this Behavioral answer against the STAR framework. Score each dimension, then weigh them into one 0-100 score:",
+    "- Situation: is the context concrete and specific, or generic and hypothetical?",
+    "- Task: is the candidate's own responsibility clear, as distinct from the team's?",
+    "- Action: what did THEY personally do, step by step — not what the team did?",
+    "- Result: is there a stated outcome, ideally with a measurable number?",
+    "",
+    "Penalise vagueness heavily. Penalise \"we\" where \"I\" is expected: if the candidate describes the team's actions instead of their own, the Action dimension scores low no matter how impressive the project sounds."
+  ].join("\n");
+
+  // definition / mechanism / tradeoff / experience, for the System Design
+  // round. Tradeoff is called out as the discriminator on purpose — it is the
+  // dimension a candidate cannot pass by reciting a memorised definition.
+  const SYSTEM_DESIGN_RUBRIC = [
+    "Grade this System Design answer against four dimensions. Score each, then weigh them into one 0-100 score:",
+    "- Definition: do they define the thing correctly?",
+    "- Mechanism: can they explain how it actually works, not just what it is called?",
+    "- Tradeoff: do they name what it COSTS, not only what it gives?",
+    "- Experience: do they ground it in something they have actually built or operated?",
+    "",
+    "Tradeoff is the discriminator between a memorised answer and an understood one. An answer that defines the concept fluently but names no cost, no failure mode, and no alternative it was chosen over has not demonstrated understanding — score it accordingly."
+  ].join("\n");
+
+  // Applies to both rubrics. Without this, the min-1-item grammar rule turns
+  // into pressure to invent a compliment for a bad answer, which would be a
+  // fabricated evaluation in the same way a fabricated score is.
+  const HONESTY_INSTRUCTION = [
+    "If a dimension is absent from the answer, say so plainly in \"improvements\" — name the dimension and what was missing.",
+    "Do NOT manufacture a compliment to fill the \"strengths\" requirement. If the answer is weak, an honest neutral observation about what the candidate did attempt is the correct strength to record. Never praise something that is not there."
+  ].join("\n");
+
   function buildEvaluatePrompt(req) {
     const isSystemDesign = req.category === "System Design";
     const probeUsed = req.probeUsed === true;
@@ -71,10 +194,13 @@ const LLM = (() => {
       `Reference answer: ${req.modelAnswer || "(none provided)"}`,
       `Candidate's answer: ${req.userAnswer}`,
       "",
-      "Score the candidate's answer from 0 to 100 based on correctness, depth, and clarity of communication.",
+      isSystemDesign ? SYSTEM_DESIGN_RUBRIC : BEHAVIORAL_RUBRIC,
+      "",
+      HONESTY_INSTRUCTION,
+      "",
       isSystemDesign
-        ? "This is a System Design question: set \"complexity\" to the real time/space complexity implied by the candidate's proposed design (e.g. \"O(n) time, O(1) space\"), derived from what they actually described. Do not use a placeholder value."
-        : "This is a Behavioral question: set \"complexity\" to null.",
+        ? "Set \"complexity\" to the real time/space complexity implied by the candidate's proposed design (e.g. \"O(n) time, O(1) space\"), derived from what they actually described. Do not use a placeholder value."
+        : "Set \"complexity\" to null.",
       "",
       "Decide \"levelSignal\" from the score you just assigned, applying these rules in order:",
       "- score > 75: \"step_up\"",
@@ -98,39 +224,43 @@ const LLM = (() => {
     const grammar = await loadEvaluateGrammar();
     const prompt = buildEvaluatePrompt(req);
 
-    const res = await fetch(`${LLAMA_SERVER_URL}/completion`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt,
-        grammar,
-        temperature: 0.2,
-        n_predict: 700,
-        stream: false
-      })
+    const data = await postCompletion("evaluate", {
+      prompt,
+      grammar,
+      temperature: 0.2,
+      n_predict: 700,
+      stream: false
     });
-
-    if (!res.ok) {
-      throw new Error(`llama-server /completion failed: ${res.status} ${res.statusText}`);
-    }
-
-    const data = await res.json();
-    const parsed = JSON.parse(data.content);
+    const parsed = parseCompletionContent("evaluate", data);
 
     if (typeof parsed.score !== "number") {
       throw new Error(`evaluate(): model returned non-numeric score "${parsed.score}"`);
     }
 
     const isSystemDesign = req.category === "System Design";
+    const levelSignal = deriveLevelSignal(parsed.score, req.probeUsed === true);
+
+    // The model also emits a levelSignal, but the JS derivation above is
+    // authoritative — see deriveLevelSignal(). Logged rather than silently
+    // dropped so a systematic disagreement is visible during testing.
+    if (parsed.levelSignal && parsed.levelSignal !== levelSignal) {
+      console.warn(
+        `evaluate(): model levelSignal "${parsed.levelSignal}" disagrees with derived "${levelSignal}" ` +
+        `for score ${parsed.score} (probeUsed=${req.probeUsed === true}); using derived value.`
+      );
+    }
 
     return {
       score: parsed.score,
-      strengths: parsed.strengths || [],
-      improvements: parsed.improvements || [],
-      modelAnswer: parsed.modelAnswer || req.modelAnswer || "",
+      strengths: withPlaceholder(parsed.strengths, NO_STRENGTHS_PLACEHOLDER),
+      improvements: withPlaceholder(parsed.improvements, NO_IMPROVEMENTS_PLACEHOLDER),
+      // The authored reference answer from question-bank.js is the trustworthy
+      // one; the model's generated version is only a fallback when a question
+      // ships without one.
+      modelAnswer: req.modelAnswer || parsed.modelAnswer || "",
       complexity: isSystemDesign ? (parsed.complexity || null) : null,
       feedback: parsed.feedback || "",
-      levelSignal: deriveLevelSignal(parsed.score, req.probeUsed === true)
+      levelSignal
     };
   }
 
@@ -170,24 +300,14 @@ const LLM = (() => {
     const MAX_ATTEMPTS = 3;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const res = await fetch(`${LLAMA_SERVER_URL}/completion`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt,
-          grammar,
-          temperature: 0.2,
-          n_predict: 300,
-          stream: false
-        })
+      const data = await postCompletion("followup", {
+        prompt,
+        grammar,
+        temperature: 0.2,
+        n_predict: 300,
+        stream: false
       });
-
-      if (!res.ok) {
-        throw new Error(`llama-server /completion failed: ${res.status} ${res.statusText}`);
-      }
-
-      const data = await res.json();
-      const parsed = JSON.parse(data.content);
+      const parsed = parseCompletionContent("followup", data);
 
       if (!isDegenerateFollowup(parsed.followup)) {
         return { followup: parsed.followup || null };
@@ -238,44 +358,40 @@ const LLM = (() => {
     const grammar = await loadRecommendGrammar();
     const prompt = buildRecommendPrompt(req);
     const MAX_ATTEMPTS = 3;
+    let lastParseError = null;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const res = await fetch(`${LLAMA_SERVER_URL}/completion`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt,
-          grammar,
-          temperature: 0.2,
-          n_predict: 700,
-          stream: false
-        })
+      const data = await postCompletion("recommend", {
+        prompt,
+        grammar,
+        temperature: 0.2,
+        n_predict: 700,
+        stream: false
       });
 
-      if (!res.ok) {
-        throw new Error(`llama-server /completion failed: ${res.status} ${res.statusText}`);
-      }
-
-      const data = await res.json();
       let parsed;
       try {
-        parsed = JSON.parse(data.content);
-      } catch {
-        continue; // Malformed/truncated output — retry.
+        parsed = parseCompletionContent("recommend", data);
+      } catch (err) {
+        // Malformed/truncated output — retry, but keep the reason in case
+        // this turns out to be the last attempt.
+        lastParseError = err;
+        continue;
       }
 
       if (!isDegenerateRecommendation(parsed)) {
         return {
           levelAdvice: parsed.levelAdvice,
-          strengths: parsed.strengths || [],
-          focusAreas: parsed.focusAreas || [],
+          strengths: withPlaceholder(parsed.strengths, NO_STRENGTHS_PLACEHOLDER),
+          focusAreas: withPlaceholder(parsed.focusAreas, NO_FOCUS_AREAS_PLACEHOLDER),
           nextSteps: parsed.nextSteps
         };
       }
     }
 
-    // Every attempt came back with placeholder text.
-    throw new Error("recommend(): model returned placeholder text on every attempt");
+    // Every attempt was unusable — either unparseable or placeholder text.
+    if (lastParseError) throw lastParseError;
+    throw new Error(`recommend(): model returned placeholder text on all ${MAX_ATTEMPTS} attempts`);
   }
 
   return { evaluate, followup, recommend };

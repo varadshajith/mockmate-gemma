@@ -663,7 +663,7 @@ function drawGrowthChart(canvasId) {
     const y = (h - 30) * (i / 4);
     ctx.beginPath();
     ctx.moveTo(30, y);
-    ctx.lineTo(w - 10, y);
+    ctx.lineTo(w - 15, y);
     ctx.stroke();
   }
   
@@ -671,14 +671,14 @@ function drawGrowthChart(canvasId) {
   const scores = [...APP_STATE.history].reverse().map(h => h.score);
   if (scores.length === 0) return;
   
-  const paddingLeft = 30;
+  const paddingLeft = 35;
   const paddingBottom = 20;
-  const graphWidth = w - paddingLeft - 20;
+  const graphWidth = w - paddingLeft - 35; // 35px right pad to avoid clipping
   const graphHeight = h - paddingBottom - 10;
   
   const points = scores.map((score, index) => {
     const x = paddingLeft + (scores.length > 1 ? (graphWidth * (index / (scores.length - 1))) : graphWidth / 2);
-    const y = graphHeight - (graphHeight * (score / 100)) + 10;
+    const y = graphHeight - (graphHeight * (score / 100)) + 15;
     return { x, y, score };
   });
   
@@ -2661,4 +2661,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadExternalQuestions();
   loadStateFromStorage();
   initAppShell();
+  
+  window.addEventListener("resize", () => {
+    if (document.getElementById("growth-canvas-chart")) {
+      drawGrowthChart("growth-canvas-chart");
+    }
+  });
 });

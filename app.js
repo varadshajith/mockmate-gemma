@@ -340,12 +340,22 @@ function viewLanding() {
         </div>
       </nav>
       
-      <section class="landing-hero">
+      <section class="landing-hero" style="position: relative; overflow: hidden;">
+        <!-- Geometric Background Shapes -->
+        <div class="hero-bg-shapes">
+          <div class="bg-blur-overlay"></div>
+          <div class="elegant-shape shape-1"><div class="elegant-shape-inner"></div></div>
+          <div class="elegant-shape shape-2"><div class="elegant-shape-inner"></div></div>
+          <div class="elegant-shape shape-3"><div class="elegant-shape-inner"></div></div>
+          <div class="elegant-shape shape-4"><div class="elegant-shape-inner"></div></div>
+          <div class="elegant-shape shape-5"><div class="elegant-shape-inner"></div></div>
+        </div>
+
         <div class="hero-content">
-          <span class="hero-tagline">Confidence Over Memorization</span>
-          <h1 class="hero-title">Practice today.<br>Impress tomorrow.</h1>
-          <p class="hero-desc">Practice spoken interview rounds against a model that runs entirely on your own machine. Nothing you say leaves the device.</p>
-          <div class="hero-actions">
+          <span class="hero-tagline hero-revealed tagline-revealed">Confidence Over Memorization</span>
+          <h1 class="hero-title hero-revealed title-revealed">Practice today.<br>Impress tomorrow.</h1>
+          <p class="hero-desc hero-revealed desc-revealed">Practice spoken interview rounds against a model that runs entirely on your own machine. Nothing you say leaves the device.</p>
+          <div class="hero-actions hero-revealed actions-revealed">
             <a href="#/setup" class="btn btn-primary">Start Interview</a>
             <a href="#howitworks" class="btn btn-secondary">How it works</a>
           </div>

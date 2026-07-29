@@ -1013,6 +1013,10 @@ function finishRound() {
   clearInterval(s.timerInterval);
   stopSpeaking();
   stopActiveSpeechRecognition();
+  if (window.activeVoiceOrb) {
+    window.activeVoiceOrb.destroy();
+    window.activeVoiceOrb = null;
+  }
   window.location.hash = "#/transition";
 }
 

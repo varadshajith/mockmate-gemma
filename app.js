@@ -352,7 +352,7 @@ function viewLanding() {
         </div>
         <div class="hero-illustration">
           <div class="illustration-card" style="width: 480px;">
-            <div style="background-color: var(--primary-light); height: 280px; display: flex; align-items: center; justify-content: center; position: relative;">
+            <div style="background-color: var(--primary-light); height: 280px; display: flex; align-items: center; justify-content: center; position: relative; border-radius: inherit;">
               <i data-lucide="bot" style="width: 80px; height: 80px; color: var(--primary);"></i>
               <div class="floating-feedback-card">
                 <div class="feedback-icon-sparkle"><i data-lucide="sparkles"></i></div>
@@ -513,7 +513,7 @@ function viewDashboard() {
         <!-- Welcome banner -->
         <div class="card welcome-banner-card">
           <div class="welcome-content">
-            <h2>Welcome back${APP_STATE.user.name ? `, ${APP_STATE.user.name}` : ""}! 👋</h2>
+            <h2>Welcome back${APP_STATE.user.name ? `, ${APP_STATE.user.name}` : ""}!</h2>
             <p>Ready to continue your placement preparation? Practice technical questions under realistic conditions and get direct AI coach metrics.</p>
             <div class="welcome-card-actions">
               <a href="#/setup" class="btn btn-primary">Start New Mock</a>

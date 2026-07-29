@@ -552,12 +552,13 @@ button {
 
 .btn-primary {
   background-color: var(--primary);
-  color: #ffffff;
+  color: #ffffff !important;
   box-shadow: 0 0 12px rgba(6, 182, 212, 0.2);
 }
 
 .btn-primary:hover {
   background-color: var(--primary-hover);
+  color: #ffffff !important;
   transform: scale(1.02);
   box-shadow: 0 0 18px rgba(6, 182, 212, 0.4);
 }
@@ -684,7 +685,6 @@ button {
 
 .landing-nav {
   height: 80px;
-  background-color: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--surface-border);
   display: flex;
@@ -767,7 +767,7 @@ button {
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--surface-border);
   background-color: var(--surface);
-  overflow: hidden;
+  overflow: visible;
   position: relative;
 }
 
@@ -864,8 +864,9 @@ button {
 
 .feature-box:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--primary-light);
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.15), var(--shadow-md);
+  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.06);
 }
 
 .feature-icon-wrapper {
@@ -986,20 +987,20 @@ button {
 /* Final CTA */
 .final-cta-section {
   background-color: var(--primary);
-  color: var(--surface);
+  color: #09090b;
   padding: 80px 64px;
   text-align: center;
   position: relative;
 }
 
 .final-cta-section h2 {
-  color: var(--surface);
+  color: #09090b;
   font-size: 40px;
   margin-bottom: 16px;
 }
 
 .final-cta-section p {
-  color: var(--primary-light);
+  color: rgba(9, 9, 11, 0.8);
   font-size: 18px;
   margin-bottom: 32px;
 }
@@ -1019,7 +1020,7 @@ button {
 }
 
 .footer-brand h3 {
-  color: var(--surface);
+  color: #09090b;
   font-size: 20px;
   margin-bottom: 12px;
 }
@@ -1030,7 +1031,7 @@ button {
 }
 
 .footer-column h4 {
-  color: var(--surface);
+  color: #09090b;
   margin-bottom: 16px;
   font-size: 14px;
   text-transform: uppercase;
@@ -1044,7 +1045,7 @@ button {
 }
 
 .footer-column a:hover {
-  color: var(--surface);
+  color: var(--primary);
 }
 
 .footer-bottom {
@@ -1111,12 +1112,13 @@ button {
 
 .welcome-banner-card .btn-primary {
   background-color: #ffffff;
-  color: var(--primary);
+  color: var(--primary) !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .welcome-banner-card .btn-primary:hover {
   background-color: rgba(255, 255, 255, 0.9);
+  color: var(--primary) !important;
 }
 
 .welcome-banner-card .btn-secondary {
@@ -1155,6 +1157,14 @@ button {
   align-items: center;
   gap: 16px;
   box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  background: rgba(99, 102, 241, 0.06);
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.12), var(--shadow-md);
 }
 
 .stat-card-icon {

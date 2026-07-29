@@ -757,6 +757,17 @@ button {
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   animation: float-shape 12s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.elegant-shape-inner i {
+  width: 40px;
+  height: 40px;
+  opacity: 0.25;
+  color: #ffffff;
+  stroke-width: 1.5px;
 }
 
 .elegant-shape-inner::after {

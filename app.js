@@ -344,11 +344,11 @@ function viewLanding() {
         <!-- Geometric Background Shapes -->
         <div class="hero-bg-shapes">
           <div class="bg-blur-overlay"></div>
-          <div class="elegant-shape shape-1"><div class="elegant-shape-inner"></div></div>
-          <div class="elegant-shape shape-2"><div class="elegant-shape-inner"></div></div>
-          <div class="elegant-shape shape-3"><div class="elegant-shape-inner"></div></div>
-          <div class="elegant-shape shape-4"><div class="elegant-shape-inner"></div></div>
-          <div class="elegant-shape shape-5"><div class="elegant-shape-inner"></div></div>
+          <div class="elegant-shape shape-1"><div class="elegant-shape-inner"><i data-lucide="message-square-code"></i></div></div>
+          <div class="elegant-shape shape-2"><div class="elegant-shape-inner"><i data-lucide="mic"></i></div></div>
+          <div class="elegant-shape shape-3"><div class="elegant-shape-inner"><i data-lucide="audio-lines"></i></div></div>
+          <div class="elegant-shape shape-4"><div class="elegant-shape-inner"><i data-lucide="graduation-cap"></i></div></div>
+          <div class="elegant-shape shape-5"><div class="elegant-shape-inner"><i data-lucide="sparkles"></i></div></div>
         </div>
 
         <div class="hero-content">

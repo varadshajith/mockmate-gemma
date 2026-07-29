@@ -191,6 +191,11 @@ function router() {
     }
   }
   
+  if (path !== "landing" && window.activeLandingWaveform) {
+    window.activeLandingWaveform.destroy();
+    window.activeLandingWaveform = null;
+  }
+  
   const viewFn = routes[path] || viewLanding;
 
   // Toggle sidebar/header visibility depending on page type
@@ -358,9 +363,24 @@ function viewLanding() {
           </div>
         </div>
         <div class="hero-illustration">
-          <div class="illustration-card" style="width: 480px;">
-            <div style="background-color: var(--primary-light); height: 280px; display: flex; align-items: center; justify-content: center; position: relative; border-radius: inherit;">
-              <i data-lucide="bot" style="width: 80px; height: 80px; color: var(--primary);"></i>
+          <div class="illustration-card" style="width: 480px; overflow: visible;">
+            <div class="landing-ai-module-card">
+              <div class="ai-module-grid-bg"></div>
+              <div class="ai-module-glow-overlay"></div>
+              <canvas id="landing-waveform-canvas" class="waveform-analysis-canvas"></canvas>
+              
+              <div class="ai-module-status-pane">
+                <div class="status-pane-row">
+                  <span class="status-indicator-dot anim-blink"></span>
+                  <span class="status-pane-label">Voice Analyser Active</span>
+                </div>
+                <div class="status-pane-telemetry">
+                  <span class="telemetry-item">Freq: <span id="telemetry-freq">142Hz</span></span>
+                  <span class="telemetry-item">Gain: <span id="telemetry-gain">18dB</span></span>
+                  <span class="telemetry-item">Conf: <span id="telemetry-conf">98.4%</span></span>
+                </div>
+              </div>
+
               <div class="floating-feedback-card">
                 <div class="feedback-icon-sparkle"><i data-lucide="sparkles"></i></div>
                 <div>
@@ -499,6 +519,7 @@ function viewLanding() {
       </footer>
     </div>
   `;
+  startLandingWaveform();
   initScrollReveal();
 }
 
@@ -3106,6 +3127,93 @@ function createVoiceOrb(container) {
       if (gl) {
         gl.getExtension("WEBGL_lose_context")?.loseContext();
       }
+    }
+  };
+}
+
+// ==========================================
+// 6. Landing Page Visualizer (Voice Waveform)
+// ==========================================
+function startLandingWaveform() {
+  const canvas = document.getElementById("landing-waveform-canvas");
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  let animationFrameId = null;
+
+  function resize() {
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const width = canvas.parentElement.clientWidth || 480;
+    const height = canvas.parentElement.clientHeight || 280;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+  }
+  
+  resize();
+  window.addEventListener("resize", resize);
+
+  let offset = 0;
+  let lastStatsTime = 0;
+
+  function render(time) {
+    if (!canvas) return;
+    animationFrameId = requestAnimationFrame(render);
+
+    const w = canvas.width / (window.devicePixelRatio || 1);
+    const h = canvas.height / (window.devicePixelRatio || 1);
+
+    ctx.clearRect(0, 0, w, h);
+
+    if (time - lastStatsTime > 400) {
+      lastStatsTime = time;
+      const freqEl = document.getElementById("telemetry-freq");
+      const gainEl = document.getElementById("telemetry-gain");
+      const confEl = document.getElementById("telemetry-conf");
+      if (freqEl) freqEl.innerText = `${Math.floor(130 + Math.random() * 25)}Hz`;
+      if (gainEl) gainEl.innerText = `${Math.floor(12 + Math.random() * 10)}dB`;
+      if (confEl) confEl.innerText = `${(98 + Math.random() * 1.5).toFixed(1)}%`;
+    }
+
+    ctx.lineCap = "round";
+
+    // 3 layered tapering sine waves using Cyan (#06b6d4)
+    const waveConfigs = [
+      { amplitude: 24, frequency: 0.015, speed: 0.08, color: "rgba(6, 182, 212, 0.75)", lineWidth: 2 },
+      { amplitude: 14, frequency: 0.025, speed: -0.12, color: "rgba(99, 102, 241, 0.55)", lineWidth: 1.5 },
+      { amplitude: 35, frequency: 0.008, speed: 0.04, color: "rgba(6, 182, 212, 0.15)", lineWidth: 4 }
+    ];
+
+    waveConfigs.forEach(cfg => {
+      ctx.beginPath();
+      ctx.strokeStyle = cfg.color;
+      ctx.lineWidth = cfg.lineWidth;
+
+      for (let x = 0; x < w; x++) {
+        const envelope = Math.sin((x / w) * Math.PI);
+        const y = h / 2 + Math.sin(x * cfg.frequency + offset * cfg.speed) * cfg.amplitude * envelope;
+        
+        if (x === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      ctx.stroke();
+    });
+
+    offset += 0.5;
+  }
+
+  animationFrameId = requestAnimationFrame(render);
+
+  window.activeLandingWaveform = {
+    destroy() {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      window.removeEventListener("resize", resize);
     }
   };
 }

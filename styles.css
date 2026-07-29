@@ -757,17 +757,6 @@ button {
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   animation: float-shape 12s ease-in-out infinite;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.elegant-shape-inner i {
-  width: 40px;
-  height: 40px;
-  opacity: 0.25;
-  color: #ffffff;
-  stroke-width: 1.5px;
 }
 
 .elegant-shape-inner::after {
@@ -839,7 +828,7 @@ button {
 .shape-4 .elegant-shape-inner {
   width: 200px;
   height: 60px;
-  background: linear-gradient(90deg, rgba(245, 158, 11, 0.12), transparent);
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.12), transparent);
   animation-delay: 4.5s;
 }
 

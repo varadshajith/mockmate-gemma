@@ -759,6 +759,29 @@ button {
   }
 }
 
+/* Scroll reveal slide and fade classes */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.8s cubic-bezier(0.25, 0.4, 0.25, 1), transform 0.8s cubic-bezier(0.25, 0.4, 0.25, 1);
+}
+
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.scroll-reveal-item {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.8s cubic-bezier(0.25, 0.4, 0.25, 1), transform 0.8s cubic-bezier(0.25, 0.4, 0.25, 1);
+}
+
+.scroll-reveal-item.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .hero-content {
   flex: 1;
 }

@@ -368,19 +368,19 @@ function viewLanding() {
       
       <section class="landing-stats-section">
         <div class="landing-stats-grid">
-          <div class="stat-item">
+          <div class="stat-item scroll-reveal-item">
             <h3>15,000+</h3>
             <p>Mock Interviews Completed</p>
           </div>
-          <div class="stat-item">
+          <div class="stat-item scroll-reveal-item">
             <h3>94%</h3>
             <p>Placement Success Rate</p>
           </div>
-          <div class="stat-item">
+          <div class="stat-item scroll-reveal-item">
             <h3>32%</h3>
             <p>Confidence Level Increase</p>
           </div>
-          <div class="stat-item">
+          <div class="stat-item scroll-reveal-item">
             <h3>24/7</h3>
             <p>Mentorship availability</p>
           </div>
@@ -388,22 +388,22 @@ function viewLanding() {
       </section>
       
       <section class="landing-features" id="features">
-        <div class="section-header">
+        <div class="section-header scroll-reveal">
           <h2>Everything you need to get placement-ready</h2>
           <p>Not a quiz app. A spoken practice tool that scores how you actually answer out loud.</p>
         </div>
         <div class="grid-3">
-          <div class="feature-box">
+          <div class="feature-box scroll-reveal-item">
             <div class="feature-icon-wrapper"><i data-lucide="code-2"></i></div>
             <h3>Spoken Behavioral Round</h3>
             <p>Introductions, conflict, and STAR-style situational questions answered out loud and scored on structure.</p>
           </div>
-          <div class="feature-box">
+          <div class="feature-box scroll-reveal-item">
             <div class="feature-icon-wrapper purple"><i data-lucide="users"></i></div>
             <h3>Spoken System Design Round</h3>
             <p>Talk through a design end to end. Scored on trade-offs, bottlenecks, and how clearly you reason aloud.</p>
           </div>
-          <div class="feature-box">
+          <div class="feature-box scroll-reveal-item">
             <div class="feature-icon-wrapper"><i data-lucide="pie-chart"></i></div>
             <h3>AI Feedback Reports</h3>
             <p>Detailed analysis mapping technical clarity, strengths, suggestions for improvement, and ideal answers.</p>
@@ -412,22 +412,22 @@ function viewLanding() {
       </section>
       
       <section class="how-it-works-section" id="howitworks">
-        <div class="section-header">
+        <div class="section-header scroll-reveal">
           <h2>Three Steps to Your Dream Job</h2>
           <p>Simple, clean setup designed to get you practicing in under 30 seconds.</p>
         </div>
         <div class="how-it-works-grid">
-          <div class="step-card">
+          <div class="step-card scroll-reveal-item">
             <div class="step-number">1</div>
             <h3>Select Role Details</h3>
             <p>Pick target profiles, custom topics, difficulty tiers, and duration details.</p>
           </div>
-          <div class="step-card">
+          <div class="step-card scroll-reveal-item">
             <div class="step-number">2</div>
             <h3>Simulated Session</h3>
             <p>Respond to AI generated interview prompts. Work under a realistic time limit.</p>
           </div>
-          <div class="step-card">
+          <div class="step-card scroll-reveal-item">
             <div class="step-number">3</div>
             <h3>Detailed AI Evaluation</h3>
             <p>Examine scoring charts, radar parameters, strengths breakdown, and ideal answers.</p>
@@ -436,11 +436,11 @@ function viewLanding() {
       </section>
       
       <section class="faq-section" id="faqs">
-        <div class="section-header">
+        <div class="section-header scroll-reveal">
           <h2>Frequently Asked Questions</h2>
         </div>
         <div class="faq-list">
-          <div class="faq-item">
+          <div class="faq-item scroll-reveal-item">
             <button class="faq-question" onclick="toggleFaq(this)">
               <span>How are my answers evaluated?</span>
               <i data-lucide="chevron-down"></i>
@@ -449,7 +449,7 @@ function viewLanding() {
               A language model running locally on your machine reads the transcript of your spoken answer and scores terminology, structure, and depth. No request ever leaves your device.
             </div>
           </div>
-          <div class="faq-item">
+          <div class="faq-item scroll-reveal-item">
             <button class="faq-question" onclick="toggleFaq(this)">
               <span>Is this platform useful for HR behavioral rounds?</span>
               <i data-lucide="chevron-down"></i>
@@ -461,7 +461,7 @@ function viewLanding() {
         </div>
       </section>
       
-      <section class="final-cta-section">
+      <section class="final-cta-section scroll-reveal">
         <h2>Ready to build placement confidence?</h2>
         <p>No credit card required. Get started with your first mock session instantly.</p>
         <a href="#/setup" class="btn btn-primary">Start Interview</a>
@@ -492,6 +492,40 @@ function viewLanding() {
       </footer>
     </div>
   `;
+  initScrollReveal();
+}
+
+function initScrollReveal() {
+  const observerOptions = {
+    root: null,
+    rootMargin: "0px 0px -50px 0px",
+    threshold: 0.15
+  };
+
+  const observer = new IntersectionObserver((entries, obs) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        if (entry.target.classList.contains("grid-3") || 
+            entry.target.classList.contains("how-it-works-grid") || 
+            entry.target.classList.contains("faq-list") ||
+            entry.target.classList.contains("landing-stats-grid")) {
+          const items = entry.target.querySelectorAll(".scroll-reveal-item");
+          items.forEach((item, index) => {
+            item.style.transitionDelay = `${index * 0.15}s`;
+            item.classList.add("revealed");
+          });
+        } else {
+          entry.target.classList.add("revealed");
+        }
+        obs.unobserve(entry.target);
+      }
+    });
+  }, observerOptions);
+
+  document.querySelectorAll(".scroll-reveal").forEach(el => observer.observe(el));
+  document.querySelectorAll(".landing-stats-grid, .landing-features .grid-3, .how-it-works-grid, .faq-list").forEach(grid => {
+    observer.observe(grid);
+  });
 }
 
 window.toggleFaq = function(button) {

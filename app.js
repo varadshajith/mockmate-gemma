@@ -2986,6 +2986,7 @@ function createVoiceOrb(container) {
     dpr: window.devicePixelRatio || 1
   });
   const gl = renderer.gl;
+  gl.canvas.style.backgroundColor = "transparent";
   gl.clearColor(0, 0, 0, 0);
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -3088,6 +3089,9 @@ function createVoiceOrb(container) {
       cancelAnimationFrame(rafId);
       window.removeEventListener("resize", resize);
       stopMicrophone();
+      if (gl && gl.canvas) {
+        gl.canvas.style.display = "none";
+      }
       if (container && gl && gl.canvas) {
         try {
           if (container.contains(gl.canvas)) {

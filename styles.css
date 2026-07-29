@@ -2110,10 +2110,14 @@ button {
   align-items: center;
   background-color: var(--surface);
   font-weight: 600;
+  color: var(--text-main);
+  border: none;
+  cursor: pointer;
 }
 
 .collapsible-trigger:hover {
-  background-color: var(--bg);
+  background-color: var(--primary-light);
+  color: var(--primary);
 }
 
 .collapsible-trigger-title {
@@ -3444,7 +3448,7 @@ body.dark-theme .dropdown-item:hover {
   border: 2px solid transparent;
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(#131924, #131924) padding-box,
     linear-gradient(135deg, var(--primary), var(--accent)) border-box;
   background-clip: padding-box, border-box;
 }

@@ -18,6 +18,12 @@
 
   <!-- Lucide Icons Library — vendored, pinned to v0.408.0 -->
   <script src="vendor/lucide.min.js"></script>
+
+  <!-- OGL WebGL Library (Offline ES Module Bridge) -->
+  <script type="module">
+    import { Renderer, Program, Mesh, Triangle, Vec3 } from './vendor/ogl.esm.js';
+    window.OGL = { Renderer, Program, Mesh, Triangle, Vec3 };
+  </script>
 </head>
 <body>
 
@@ -133,6 +139,6 @@
   <script src="src/llm.js"></script>
   <script src="src/audio.js"></script>
   <!-- Core JavaScript Logic -->
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>

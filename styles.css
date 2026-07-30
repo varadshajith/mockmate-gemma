@@ -841,8 +841,10 @@ button {
   position: absolute;
   bottom: 30px;
   left: -20px;
-  background: var(--surface);
-  border: 1px solid var(--surface-border);
+  background: rgba(15, 23, 42, 0.85); /* Solid dark frosted card surface */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-md);
   padding: 16px;
   box-shadow: var(--shadow-lg);

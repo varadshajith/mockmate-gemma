@@ -62,9 +62,8 @@ async def _handle_chunk(websocket, chunk):
     ))
 
 
-async def _run_capture(websocket):
+async def _run_capture(websocket, chunker):
     """Capture until the client says stop or disconnects."""
-    chunker = chunker_mod.Chunker(_detector)
     async with capture.MicrophoneCapture() as mic:
         async for raw in mic.frames():
             chunk = chunker.push(audio_level.pcm_bytes_to_float32(raw))
@@ -85,6 +84,7 @@ async def handler(websocket):
     ))
 
     capture_task = None
+    chunker = None
     try:
         async for raw_message in websocket:
             try:
@@ -96,11 +96,20 @@ async def handler(websocket):
 
             if command == "start":
                 if capture_task is None or capture_task.done():
-                    capture_task = asyncio.create_task(_run_capture(websocket))
+                    chunker = chunker_mod.Chunker(_detector)
+                    capture_task = asyncio.create_task(_run_capture(websocket, chunker))
             elif command == "stop":
                 if capture_task is not None:
+                    final_chunk = chunker.flush()
+                    if final_chunk is not None:
+                        await _handle_chunk(websocket, final_chunk)
                     capture_task.cancel()
+                    try:
+                        await capture_task
+                    except asyncio.CancelledError:
+                        pass
                     capture_task = None
+                    chunker = None
             else:
                 await websocket.send(_message("error", code="unknown_command",
                                               message=f"unknown command {command!r}"))

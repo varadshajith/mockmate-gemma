@@ -112,6 +112,9 @@ function stopActiveCamera() {
 // so the local pipeline can be swapped in without touching view code.
 function stopActiveSpeechRecognition() {
   LocalAudio.stopListening();
+  if (window.activeVoiceOrb) {
+    window.activeVoiceOrb.setListening(false);
+  }
 }
 
 function speakText(text) {
@@ -182,6 +185,10 @@ function router() {
   if (path !== "round") {
     stopActiveCamera();
     stopActiveSpeechRecognition();
+    if (window.activeVoiceOrb) {
+      window.activeVoiceOrb.destroy();
+      window.activeVoiceOrb = null;
+    }
   }
   
   const viewFn = routes[path] || viewLanding;
@@ -194,9 +201,6 @@ function router() {
     shell.classList.add("sidebar-hidden");
   } else {
     shell.classList.remove("sidebar-hidden");
-    // Update Header profile info
-    document.getElementById("header-avatar").innerText = APP_STATE.user.name ? APP_STATE.user.name.charAt(0).toUpperCase() : 'U';
-    document.getElementById("header-username").innerText = APP_STATE.user.name || 'New User';
     // Highlight sidebar active item
     updateActiveSidebarItem(path);
   }
@@ -343,26 +347,26 @@ function viewLanding() {
         </div>
       </nav>
       
-      <section class="landing-hero">
+      <section class="landing-hero" style="position: relative; overflow: hidden;">
         <div class="hero-content">
-          <span class="hero-tagline">Confidence Over Memorization</span>
-          <h1 class="hero-title">Practice today.<br>Impress tomorrow.</h1>
-          <p class="hero-desc">Practice spoken interview rounds against a model that runs entirely on your own machine. Nothing you say leaves the device.</p>
-          <div class="hero-actions">
+          <span class="hero-tagline hero-revealed tagline-revealed">Confidence Over Memorization</span>
+          <h1 class="hero-title hero-revealed title-revealed">Practice today.<br>Impress tomorrow.</h1>
+          <p class="hero-desc hero-revealed desc-revealed">Practice spoken interview rounds against a model that runs entirely on your own machine. Nothing you say leaves the device.</p>
+          <div class="hero-actions hero-revealed actions-revealed">
             <a href="#/setup" class="btn btn-primary">Start Interview</a>
             <a href="#howitworks" class="btn btn-secondary">How it works</a>
           </div>
         </div>
         <div class="hero-illustration">
-          <div class="illustration-card" style="width: 480px;">
-            <div style="background-color: var(--primary-light); height: 280px; display: flex; align-items: center; justify-content: center; position: relative;">
-              <i data-lucide="bot" style="width: 80px; height: 80px; color: var(--primary);"></i>
-              <div class="floating-feedback-card">
-                <div class="feedback-icon-sparkle"><i data-lucide="sparkles"></i></div>
-                <div>
-                  <h4 style="font-size: 13px; font-weight:700;">AI Evaluation Complete</h4>
-                  <span class="badge badge-success">86% Score</span>
-                </div>
+          <div class="illustration-card" style="width: 480px; overflow: visible; position: relative;">
+            <div style="height: 280px; display: flex; align-items: center; justify-content: center; position: relative; border-radius: inherit; overflow: hidden; background-color: var(--surface);">
+              <img src="ai-interviewer.png?v=125" alt="AI Interviewer" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+            <div class="floating-feedback-card">
+              <div class="feedback-icon-sparkle"><i data-lucide="sparkles"></i></div>
+              <div>
+                <h4 style="font-size: 13px; font-weight:700;">AI Evaluation Complete</h4>
+                <span class="badge badge-success">86% Score</span>
               </div>
             </div>
           </div>
@@ -371,19 +375,19 @@ function viewLanding() {
       
       <section class="landing-stats-section">
         <div class="landing-stats-grid">
-          <div class="stat-item">
+          <div class="stat-item scroll-reveal-item">
             <h3>15,000+</h3>
             <p>Mock Interviews Completed</p>
           </div>
-          <div class="stat-item">
+          <div class="stat-item scroll-reveal-item">
             <h3>94%</h3>
             <p>Placement Success Rate</p>
           </div>
-          <div class="stat-item">
+          <div class="stat-item scroll-reveal-item">
             <h3>32%</h3>
             <p>Confidence Level Increase</p>
           </div>
-          <div class="stat-item">
+          <div class="stat-item scroll-reveal-item">
             <h3>24/7</h3>
             <p>Mentorship availability</p>
           </div>
@@ -391,22 +395,22 @@ function viewLanding() {
       </section>
       
       <section class="landing-features" id="features">
-        <div class="section-header">
+        <div class="section-header scroll-reveal">
           <h2>Everything you need to get placement-ready</h2>
           <p>Not a quiz app. A spoken practice tool that scores how you actually answer out loud.</p>
         </div>
         <div class="grid-3">
-          <div class="feature-box">
+          <div class="feature-box scroll-reveal-item">
             <div class="feature-icon-wrapper"><i data-lucide="code-2"></i></div>
             <h3>Spoken Behavioral Round</h3>
             <p>Introductions, conflict, and STAR-style situational questions answered out loud and scored on structure.</p>
           </div>
-          <div class="feature-box">
+          <div class="feature-box scroll-reveal-item">
             <div class="feature-icon-wrapper purple"><i data-lucide="users"></i></div>
             <h3>Spoken System Design Round</h3>
             <p>Talk through a design end to end. Scored on trade-offs, bottlenecks, and how clearly you reason aloud.</p>
           </div>
-          <div class="feature-box">
+          <div class="feature-box scroll-reveal-item">
             <div class="feature-icon-wrapper"><i data-lucide="pie-chart"></i></div>
             <h3>AI Feedback Reports</h3>
             <p>Detailed analysis mapping technical clarity, strengths, suggestions for improvement, and ideal answers.</p>
@@ -415,22 +419,22 @@ function viewLanding() {
       </section>
       
       <section class="how-it-works-section" id="howitworks">
-        <div class="section-header">
+        <div class="section-header scroll-reveal">
           <h2>Three Steps to Your Dream Job</h2>
           <p>Simple, clean setup designed to get you practicing in under 30 seconds.</p>
         </div>
         <div class="how-it-works-grid">
-          <div class="step-card">
+          <div class="step-card scroll-reveal-item">
             <div class="step-number">1</div>
             <h3>Select Role Details</h3>
             <p>Pick target profiles, custom topics, difficulty tiers, and duration details.</p>
           </div>
-          <div class="step-card">
+          <div class="step-card scroll-reveal-item">
             <div class="step-number">2</div>
             <h3>Simulated Session</h3>
             <p>Respond to AI generated interview prompts. Work under a realistic time limit.</p>
           </div>
-          <div class="step-card">
+          <div class="step-card scroll-reveal-item">
             <div class="step-number">3</div>
             <h3>Detailed AI Evaluation</h3>
             <p>Examine scoring charts, radar parameters, strengths breakdown, and ideal answers.</p>
@@ -439,11 +443,11 @@ function viewLanding() {
       </section>
       
       <section class="faq-section" id="faqs">
-        <div class="section-header">
+        <div class="section-header scroll-reveal">
           <h2>Frequently Asked Questions</h2>
         </div>
         <div class="faq-list">
-          <div class="faq-item">
+          <div class="faq-item scroll-reveal-item">
             <button class="faq-question" onclick="toggleFaq(this)">
               <span>How are my answers evaluated?</span>
               <i data-lucide="chevron-down"></i>
@@ -452,7 +456,7 @@ function viewLanding() {
               A language model running locally on your machine reads the transcript of your spoken answer and scores terminology, structure, and depth. No request ever leaves your device.
             </div>
           </div>
-          <div class="faq-item">
+          <div class="faq-item scroll-reveal-item">
             <button class="faq-question" onclick="toggleFaq(this)">
               <span>Is this platform useful for HR behavioral rounds?</span>
               <i data-lucide="chevron-down"></i>
@@ -464,7 +468,7 @@ function viewLanding() {
         </div>
       </section>
       
-      <section class="final-cta-section">
+      <section class="final-cta-section scroll-reveal">
         <h2>Ready to build placement confidence?</h2>
         <p>No credit card required. Get started with your first mock session instantly.</p>
         <a href="#/setup" class="btn btn-primary">Start Interview</a>
@@ -495,6 +499,40 @@ function viewLanding() {
       </footer>
     </div>
   `;
+  initScrollReveal();
+}
+
+function initScrollReveal() {
+  const observerOptions = {
+    root: null,
+    rootMargin: "0px 0px -50px 0px",
+    threshold: 0.15
+  };
+
+  const observer = new IntersectionObserver((entries, obs) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        if (entry.target.classList.contains("grid-3") || 
+            entry.target.classList.contains("how-it-works-grid") || 
+            entry.target.classList.contains("faq-list") ||
+            entry.target.classList.contains("landing-stats-grid")) {
+          const items = entry.target.querySelectorAll(".scroll-reveal-item");
+          items.forEach((item, index) => {
+            item.style.transitionDelay = `${index * 0.15}s`;
+            item.classList.add("revealed");
+          });
+        } else {
+          entry.target.classList.add("revealed");
+        }
+        obs.unobserve(entry.target);
+      }
+    });
+  }, observerOptions);
+
+  document.querySelectorAll(".scroll-reveal").forEach(el => observer.observe(el));
+  document.querySelectorAll(".landing-stats-grid, .landing-features .grid-3, .how-it-works-grid, .faq-list").forEach(grid => {
+    observer.observe(grid);
+  });
 }
 
 window.toggleFaq = function(button) {
@@ -516,7 +554,7 @@ function viewDashboard() {
         <!-- Welcome banner -->
         <div class="card welcome-banner-card">
           <div class="welcome-content">
-            <h2>Welcome back${APP_STATE.user.name ? `, ${APP_STATE.user.name}` : ""}! 👋</h2>
+            <h2>Welcome back${APP_STATE.user.name ? `, ${APP_STATE.user.name}` : ""}!</h2>
             <p>Ready to continue your placement preparation? Practice technical questions under realistic conditions and get direct AI coach metrics.</p>
             <div class="welcome-card-actions">
               <a href="#/setup" class="btn btn-primary">Start New Mock</a>
@@ -660,13 +698,13 @@ function drawGrowthChart(canvasId) {
   const h = canvas.height;
   
   // Draw helper grid lines
-  ctx.strokeStyle = "#F1F5F9";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
   ctx.lineWidth = 1;
   for (let i = 1; i <= 4; i++) {
     const y = (h - 30) * (i / 4);
     ctx.beginPath();
     ctx.moveTo(30, y);
-    ctx.lineTo(w - 10, y);
+    ctx.lineTo(w - 15, y);
     ctx.stroke();
   }
   
@@ -674,19 +712,19 @@ function drawGrowthChart(canvasId) {
   const scores = [...APP_STATE.history].reverse().map(h => h.score);
   if (scores.length === 0) return;
   
-  const paddingLeft = 30;
+  const paddingLeft = 35;
   const paddingBottom = 20;
-  const graphWidth = w - paddingLeft - 20;
+  const graphWidth = w - paddingLeft - 35; // 35px right pad to avoid clipping
   const graphHeight = h - paddingBottom - 10;
   
   const points = scores.map((score, index) => {
     const x = paddingLeft + (scores.length > 1 ? (graphWidth * (index / (scores.length - 1))) : graphWidth / 2);
-    const y = graphHeight - (graphHeight * (score / 100)) + 10;
+    const y = graphHeight - (graphHeight * (score / 100)) + 15;
     return { x, y, score };
   });
   
   // Draw line
-  ctx.strokeStyle = "#4F46E5";
+  ctx.strokeStyle = "#06b6d4";
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
@@ -697,7 +735,7 @@ function drawGrowthChart(canvasId) {
   
   // Draw Points and Tooltips
   points.forEach(p => {
-    ctx.fillStyle = "#4F46E5";
+    ctx.fillStyle = "#06b6d4";
     ctx.beginPath();
     ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
     ctx.fill();
@@ -708,7 +746,7 @@ function drawGrowthChart(canvasId) {
     ctx.fill();
     
     // Label score above point
-    ctx.fillStyle = "#0F172A";
+    ctx.fillStyle = "#FFFFFF";
     ctx.font = "bold 11px Inter";
     ctx.fillText(`${p.score}%`, p.x - 10, p.y - 10);
   });
@@ -960,6 +998,9 @@ function beginRound(i) {
   s.questions = qs;
   s.currentQuestionIndex = 0;
   s.answers = [];
+  s.hasInjectedFollowUp = false;
+  s.probedSlot = null;
+  s.lastBaseAnswerText = "";
   s.probeUsed = false;
   // Round-wide cap: at most 1 probe follow-up per round (Behavioral and
   // System Design each get their own counter simply by virtue of this
@@ -981,6 +1022,10 @@ function finishRound() {
   clearInterval(s.timerInterval);
   stopSpeaking();
   stopActiveSpeechRecognition();
+  if (window.activeVoiceOrb) {
+    window.activeVoiceOrb.destroy();
+    window.activeVoiceOrb = null;
+  }
   window.location.hash = "#/transition";
 }
 
@@ -1187,22 +1232,9 @@ function viewInterview() {
                 <span id="ai-status-text">Webcam & Voice Active</span>
               </div>
               
-              <div class="ai-details-panel">
-                <h4>Simulated AI Eye Tracking</h4>
-                <div class="tip-item">
-                  <i data-lucide="shield-check" style="color:var(--success);"></i>
-                  <span>Keep eye contact with the mesh circle for optimal focus metrics.</span>
-                </div>
-                <div class="tip-item">
-                  <i data-lucide="mic" style="color:var(--primary);"></i>
-                  <span>Speak clearly. Micro-checks detect speech confidence levels.</span>
-                </div>
-              </div>
+              <div id="state-card-wrapper" class="state-card-wrapper"></div>
             ` : `
-              <div class="ai-avatar-container">
-                <div class="ai-avatar-wave"></div>
-                <div class="ai-avatar-wave"></div>
-                <div class="ai-avatar-wave"></div>
+              <div class="ai-avatar-container" id="voice-orb-container">
                 <div class="ai-avatar-circle">
                   <i data-lucide="sparkles"></i>
                 </div>
@@ -1213,17 +1245,7 @@ function viewInterview() {
                 <span id="ai-status-text">Listening</span>
               </div>
               
-              <div class="ai-details-panel">
-                <h4>Coach Tips</h4>
-                <div class="tip-item">
-                  <i data-lucide="check-circle-2"></i>
-                  <span>Take your time to structure your thoughts before you start speaking.</span>
-                </div>
-                <div class="tip-item">
-                  <i data-lucide="check-circle-2"></i>
-                  <span>Use 'Ctrl + Enter' shortcut to submit your answers quickly.</span>
-                </div>
-              </div>
+              <div id="state-card-wrapper" class="state-card-wrapper"></div>
             `}
           </div>
         </div>
@@ -1232,6 +1254,17 @@ function viewInterview() {
   
   // Initial question load
   loadInterviewQuestion();
+
+  // Initialize Voice-Powered Orb
+  setTimeout(() => {
+    const container = document.getElementById("voice-orb-container");
+    if (container) {
+      if (window.activeVoiceOrb) {
+        window.activeVoiceOrb.destroy();
+      }
+      window.activeVoiceOrb = createVoiceOrb(container);
+    }
+  }, 50);
   
   // Start countdown timer
   clearInterval(session.timerInterval);
@@ -1311,6 +1344,7 @@ function viewInterview() {
   if (input) {
     input.addEventListener("input", () => {
       if (counter) counter.innerText = `${input.value.length} / 2000 characters`;
+      drawLiveStateCard();
     });
     // Shortcuts
     input.addEventListener("keydown", (e) => {
@@ -1346,6 +1380,195 @@ function updateTimerDisplay() {
       box.className = "timer-box";
     }
   }
+}
+// ==========================================
+// 3.5 Answer Structure (State Card) Analysis
+// ==========================================
+const SLOT_DEFINITIONS = {
+  behavioral: [
+    {
+      id: "situation",
+      name: "Situation",
+      desc: "Setting the context and background",
+      filled: ["when i was", "at my last", "previous company", "during my project", "the situation was", "our team was building", "client requested"],
+      vague: ["project", "team", "client", "problem", "started", "company"]
+    },
+    {
+      id: "task",
+      name: "Task",
+      desc: "Objective and target goals",
+      filled: ["my task was", "objective was", "i had to", "we needed to", "the goal was", "responsible for"],
+      vague: ["need", "goal", "should", "task", "job"]
+    },
+    {
+      id: "action",
+      name: "Action",
+      desc: "Specific actions you took",
+      filled: ["i created", "i developed", "i designed", "i implemented", "i resolved", "i sat down", "we debugged", "i setup"],
+      vague: ["created", "built", "implemented", "resolved", "helped", "did"]
+    },
+    {
+      id: "result",
+      name: "Result",
+      desc: "Outcome and key metrics",
+      filled: ["result was", "improved by", "led to", "increased by", "successfully", "saved", "completion"],
+      vague: ["result", "ended", "done", "worked", "happy"]
+    }
+  ],
+  systemDesign: [
+    {
+      id: "definition",
+      name: "Definition",
+      desc: "Core terms and concepts",
+      filled: ["is a", "refers to", "stands for", "can be defined", "primarily means", "concept of"],
+      vague: ["means", "is", "about", "term"]
+    },
+    {
+      id: "mechanism",
+      name: "Mechanism",
+      desc: "How components interact",
+      filled: ["how it works", "using", "under the hood", "mechanism", "through a", "works by", "process of"],
+      vague: ["works", "runs", "via", "process"]
+    },
+    {
+      id: "tradeoff",
+      name: "Tradeoff",
+      desc: "Architectural trade-offs and limits",
+      filled: ["trade-off", "tradeoff", "but", "however", "bottleneck", "pros and cons", "downsides", "alternative", "cost of"],
+      vague: ["although", "con", "pro", "hand", "worse", "better"]
+    },
+    {
+      id: "experience",
+      name: "Experience",
+      desc: "Real-world tech applications",
+      filled: ["used this in", "in my experience", "i saw this", "project where", "production environment", "last company we used"],
+      vague: ["used", "saw", "know", "experience"]
+    }
+  ]
+};
+
+function getSlotStatus(text, filledKeywords, vagueKeywords) {
+  const t = (text || "").toLowerCase();
+  let filledCount = 0;
+  let vagueCount = 0;
+
+  for (const kw of filledKeywords) {
+    if (t.includes(kw)) filledCount++;
+  }
+  for (const kw of vagueKeywords) {
+    if (t.includes(kw)) vagueCount++;
+  }
+
+  if (filledCount >= 2 || (filledCount >= 1 && vagueCount >= 2)) {
+    return "filled";
+  } else if (filledCount === 1 || vagueCount >= 1) {
+    return "vague";
+  } else {
+    return "missing";
+  }
+}
+
+function isTechnicalQuestion(q, roundType) {
+  if (!q) return roundType === "systemDesign";
+  
+  // 1. Primary check: use the 'shape' property matching STAR or Technical
+  if (q.shape) {
+    const shapeStr = q.shape.toUpperCase();
+    if (shapeStr === "STAR") return false;
+    if (shapeStr === "TECHNICAL") return true;
+  }
+  
+  // 2. Secondary check: check category tag
+  const cat = (q.category || "").toLowerCase();
+  if (cat.includes("behavior")) return false;
+  if (cat.includes("design") || cat.includes("tech") || cat.includes("code") || cat.includes("system") || cat.includes("architecture")) return true;
+  
+  // 3. Tertiary check: search keywords inside the question text prompt
+  const text = (q.text || q.question || "").toLowerCase();
+  if (text.includes("tell me about a time") || text.includes("describe a situation") || text.includes("disagreed")) return false;
+  if (text.includes("design") || text.includes("architecture") || text.includes("difference between") || text.includes("scaling") || text.includes("what does")) return true;
+  
+  // 4. Default fallback: round type
+  return roundType === "systemDesign";
+}
+
+function drawLiveStateCard() {
+  const session = APP_STATE.currentInterview;
+  if (!session) return;
+  
+  const wrappers = document.querySelectorAll(".state-card-wrapper");
+  if (wrappers.length === 0) return;
+  
+  const currentQ = session.questions[session.currentQuestionIndex];
+  const isSD = isTechnicalQuestion(currentQ, session.roundType);
+  const slots = isSD ? SLOT_DEFINITIONS.systemDesign : SLOT_DEFINITIONS.behavioral;
+  const title = isSD ? "Technical Depth Analyzer" : "Answer Structure Tracker";
+  const titleIcon = isSD ? "shield-check" : "sparkles";
+  
+  const isFollowUp = currentQ && currentQ.category === "Adaptive Follow-up";
+  const textarea = document.getElementById("interview-answer-input");
+  const text = textarea ? textarea.value : "";
+  
+  let html = `
+    <div class="state-card-title">
+      <i data-lucide="${titleIcon}"></i>
+      <span>${title}</span>
+    </div>
+    <div class="slot-list">
+  `;
+  
+  slots.forEach(slot => {
+    let status = "missing";
+    let isProbed = false;
+    
+    if (isFollowUp) {
+      const lastBaseText = session.lastBaseAnswerText || "";
+      const baseStatus = getSlotStatus(lastBaseText, slot.filled, slot.vague);
+      
+      if (session.probedSlot === slot.id) {
+        isProbed = true;
+        const followUpAddressed = getSlotStatus(text, slot.filled, slot.vague);
+        if (followUpAddressed === "filled") {
+          status = "filled";
+        } else if (followUpAddressed === "vague" || baseStatus === "vague") {
+          status = "vague";
+        } else {
+          status = baseStatus;
+        }
+      } else {
+        status = baseStatus;
+      }
+    } else {
+      status = getSlotStatus(text, slot.filled, slot.vague);
+    }
+    
+    const iconChar = status === "filled" ? "✓" : (status === "vague" ? "~" : "✗");
+    const iconClass = status;
+    
+    html += `
+      <div class="slot-row ${isProbed ? 'probed' : ''}">
+        <div class="slot-info">
+          <div class="slot-icon ${iconClass}">
+            <span>${iconChar}</span>
+          </div>
+          <div class="slot-text-content">
+            <div class="slot-name-container">
+              <span class="slot-name">${slot.name}</span>
+            </div>
+            <div class="slot-desc">${slot.desc}</div>
+          </div>
+        </div>
+        ${isProbed ? `<span class="probing-badge">Probing...</span>` : ''}
+      </div>
+    `;
+  });
+  
+  html += `</div>`;
+  wrappers.forEach(wrapper => {
+    wrapper.innerHTML = html;
+  });
+  
+  lucide.createIcons();
 }
 
 function loadInterviewQuestion() {
@@ -1394,6 +1617,9 @@ function loadInterviewQuestion() {
   if (session.aiVoiceEnabled) {
     speakText(q.text);
   }
+
+  // Draw the initial state card
+  drawLiveStateCard();
 }
 
 window.revealQuestionHint = function() {
@@ -1487,10 +1713,53 @@ window.submitInterviewAnswer = async function() {
   stopActiveSpeechRecognition();
   saveAnswer(ans);
   showToast("Answer saved successfully");
+  
+  const session = APP_STATE.currentInterview;
+  const currentQ = session.questions[session.currentQuestionIndex];
 
-  // Grade the answer now; a weak-and-not-yet-probed score queues a follow-up.
-  await evaluateAndMaybeProbe(ans);
+  if (currentQ && currentQ.category !== "Adaptive Follow-up" && !session.hasInjectedFollowUp) {
+    // Determine the probed slot
+    const isSD = isTechnicalQuestion(currentQ, session.roundType);
+    const slots = isSD ? SLOT_DEFINITIONS.systemDesign : SLOT_DEFINITIONS.behavioral;
+    session.probedSlot = null;
+    session.lastBaseAnswerText = ans;
 
+    for (const slot of slots) {
+      const status = getSlotStatus(ans, slot.filled, slot.vague);
+      if (status === "missing" || status === "vague") {
+        session.probedSlot = slot.id;
+        break;
+      }
+    }
+
+    // Force follow-up injection if we found an incomplete slot
+    if (session.probedSlot) {
+      if (isSD) {
+        const slotName = slots.find(s => s.id === session.probedSlot).name;
+        const followUpQ = {
+          id: "followup-sd",
+          text: `You explained the system design, but the ${slotName} aspect was unclear. Can you expand on the ${slotName} and the details surrounding it?`,
+          category: "Adaptive Follow-up",
+          hint: `Add details for the missing slot: ${slotName}.`,
+          modelAnswer: `Detailed explanation covering the slot ${slotName}.`
+        };
+        session.questions.splice(session.currentQuestionIndex + 1, 0, followUpQ);
+        session.hasInjectedFollowUp = true;
+        showToast(`Probing missing ${slotName}...`, "info");
+      } else {
+        await checkAndInjectFollowUp(ans);
+      }
+    } else {
+      // Backwards compatibility/default fallback triggers if everything was filled
+      await checkAndInjectFollowUp(ans);
+    }
+  } else {
+    // Reset state flags after the follow-up question finishes
+    session.hasInjectedFollowUp = false;
+    session.probedSlot = null;
+    session.lastBaseAnswerText = "";
+  }
+  
   nextInterviewStep();
 };
 
@@ -2161,7 +2430,7 @@ function drawBarChart(canvasId, items) {
   const padL = 34, padB = 42, padT = 10;
   const gw = w - padL - 12, gh = h - padB - padT;
 
-  ctx.strokeStyle = "#F1F5F9"; ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.08)"; ctx.lineWidth = 1;
   ctx.fillStyle = "#94A3B8"; ctx.font = "10px sans-serif"; ctx.textAlign = "right";
   for (let i = 0; i <= 4; i++) {
     const val = 100 - i * 25;
@@ -2178,9 +2447,9 @@ function drawBarChart(canvasId, items) {
     const y = padT + gh - bh;
     ctx.fillStyle = resolveColor(it.color);
     roundRect(ctx, x, y, bw, bh, 4); ctx.fill();
-    ctx.fillStyle = "#334155"; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "center";
+    ctx.fillStyle = "#ffffff"; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "center";
     ctx.fillText(it.value + "%", x + bw / 2, y - 4);
-    ctx.fillStyle = "#64748B"; ctx.font = "10px sans-serif";
+    ctx.fillStyle = "#94A3B8"; ctx.font = "10px sans-serif";
     ctx.fillText(truncLabel(it.label), x + bw / 2, padT + gh + 14);
   });
 }
@@ -2201,7 +2470,7 @@ function drawLineSeriesChart(canvasId, series, xCount) {
   const padL = 34, padB = 20, padT = 10;
   const gw = w - padL - 12, gh = h - padB - padT;
 
-  ctx.strokeStyle = "#F1F5F9"; ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.08)"; ctx.lineWidth = 1;
   ctx.fillStyle = "#94A3B8"; ctx.font = "10px sans-serif"; ctx.textAlign = "right";
   for (let i = 0; i <= 4; i++) {
     const y = padT + gh * (i / 4);
@@ -2346,6 +2615,9 @@ window.toggleSpeechToText = function() {
     btn.classList.remove("recording");
     label.innerText = "Voice Answer";
     showToast("Voice transcription stopped.");
+    if (window.activeVoiceOrb) {
+      window.activeVoiceOrb.setListening(false);
+    }
     return;
   }
 
@@ -2356,14 +2628,22 @@ window.toggleSpeechToText = function() {
   label.innerText = "Listening...";
   showToast("Listening... Speak clearly into your microphone.", "info");
 
+  if (window.activeVoiceOrb) {
+    window.activeVoiceOrb.setListening(true);
+  }
+
   LocalAudio.startListening((transcript) => {
     textarea.value = originalText + transcript;
     const counter = document.getElementById("char-counter-text");
     if (counter) counter.innerText = `${textarea.value.length} / 2000 characters`;
+    drawLiveStateCard();
 
     if (!LocalAudio.isListening()) {
       btn.classList.remove("recording");
       label.innerText = "Voice Answer";
+      if (window.activeVoiceOrb) {
+        window.activeVoiceOrb.setListening(false);
+      }
     }
   });
 };
@@ -2378,10 +2658,457 @@ window.replayQuestionAudio = function() {
   }
 };
 
+// Dynamic loading of interview_questions.json to populate local QUESTION_BANK
+async function loadExternalQuestions() {
+  try {
+    const response = await fetch("interview_questions.json");
+    if (!response.ok) throw new Error("Failed to load interview_questions.json");
+    const data = await response.json();
+    populateQuestionBank(data);
+    console.log("Successfully loaded external questions from interview_questions.json");
+  } catch (err) {
+    console.error("Failed to fetch interview questions:", err);
+  }
+}
+
+function populateQuestionBank(data) {
+  if (!data || !data.domains) return;
+  const diffMap = {
+    "easy": "easy",
+    "moderate": "medium",
+    "hard": "advanced"
+  };
+  
+  for (const domain in data.domains) {
+    if (!QUESTION_BANK[domain]) {
+      QUESTION_BANK[domain] = {
+        easy: { behavioral: [], systemDesign: [] },
+        medium: { behavioral: [], systemDesign: [] },
+        advanced: { behavioral: [], systemDesign: [] }
+      };
+    }
+    
+    data.domains[domain].forEach(q => {
+      const level = diffMap[q.difficulty] || "easy";
+      const qText = q.question || q.text;
+      const qHint = q.hint || (q.expected_answer_length_sec ? `Target duration: ${q.expected_answer_length_sec}s.` : "");
+      
+      let qModelAnswer = "";
+      if (q.reference_answers) {
+        qModelAnswer = q.reference_answers.score_9 || q.reference_answers.score_6 || "";
+      } else {
+        qModelAnswer = q.modelAnswer || "";
+      }
+      
+      const mappedQ = {
+        id: q.id,
+        text: qText,
+        hint: qHint,
+        modelAnswer: qModelAnswer,
+        shape: q.shape,
+        difficulty: q.difficulty,
+        probes: q.probes
+      };
+      
+      const round = q.shape === "STAR" ? "behavioral" : "systemDesign";
+      
+      const existing = QUESTION_BANK[domain][level][round];
+      if (!existing.some(eq => eq.id === q.id)) {
+        existing.push(mappedQ);
+      }
+    });
+  }
+}
+
 // ==========================================
 // 4. Initializing & Bootstrapping
 // ==========================================
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await loadExternalQuestions();
   loadStateFromStorage();
   initAppShell();
+  
+  window.addEventListener("resize", () => {
+    if (document.getElementById("growth-canvas-chart")) {
+      drawGrowthChart("growth-canvas-chart");
+    }
+  });
 });
+
+// ==========================================
+// 5. Voice-Powered Orb (WebGL shader via OGL)
+// ==========================================
+function createVoiceOrb(container) {
+  if (!window.OGL) {
+    console.error("OGL library not loaded.");
+    return null;
+  }
+
+  const { Renderer, Program, Mesh, Triangle, Vec3 } = window.OGL;
+
+  let listening = false;
+  let audioContext = null;
+  let analyser = null;
+  let microphone = null;
+  let dataArray = null;
+  let mediaStream = null;
+  let rafId = null;
+
+  const vert = `
+    precision highp float;
+    attribute vec2 position;
+    attribute vec2 uv;
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = vec4(position, 0.0, 1.0);
+    }
+  `;
+
+  const frag = `
+    precision highp float;
+
+    uniform float iTime;
+    uniform vec3 iResolution;
+    uniform float hue;
+    uniform float hover;
+    uniform float rot;
+    uniform float hoverIntensity;
+    varying vec2 vUv;
+
+    vec3 rgb2yiq(vec3 c) {
+      float y = dot(c, vec3(0.299, 0.587, 0.114));
+      float i = dot(c, vec3(0.596, -0.274, -0.322));
+      float q = dot(c, vec3(0.211, -0.523, 0.312));
+      return vec3(y, i, q);
+    }
+
+    vec3 yiq2rgb(vec3 c) {
+      float r = c.x + 0.956 * c.y + 0.621 * c.z;
+      float g = c.x - 0.272 * c.y - 0.647 * c.z;
+      float b = c.x - 1.106 * c.y + 1.703 * c.z;
+      return vec3(r, g, b);
+    }
+
+    vec3 adjustHue(vec3 color, float hueDeg) {
+      float hueRad = hueDeg * 3.14159265 / 180.0;
+      vec3 yiq = rgb2yiq(color);
+      float cosA = cos(hueRad);
+      float sinA = sin(hueRad);
+      float i = yiq.y * cosA - yiq.z * sinA;
+      float q = yiq.y * sinA + yiq.z * cosA;
+      yiq.y = i;
+      yiq.z = q;
+      return yiq2rgb(yiq);
+    }
+
+    vec3 hash33(vec3 p3) {
+      p3 = fract(p3 * vec3(0.1031, 0.11369, 0.13787));
+      p3 += dot(p3, p3.yxz + 19.19);
+      return -1.0 + 2.0 * fract(vec3(
+        p3.x + p3.y,
+        p3.x + p3.z,
+        p3.y + p3.z
+      ) * p3.zyx);
+    }
+
+    float snoise3(vec3 p) {
+      const float K1 = 0.333333333;
+      const float K2 = 0.166666667;
+      vec3 i = floor(p + (p.x + p.y + p.z) * K1);
+      vec3 d0 = p - (i - (i.x + i.y + i.z) * K2);
+      vec3 e = step(vec3(0.0), d0 - d0.yzx);
+      vec3 i1 = e * (1.0 - e.zxy);
+      vec3 i2 = 1.0 - e.zxy * (1.0 - e);
+      vec3 d1 = d0 - (i1 - K2);
+      vec3 d2 = d0 - (i2 - K1);
+      vec3 d3 = d0 - 0.5;
+      vec4 h = max(0.6 - vec4(
+        dot(d0, d0),
+        dot(d1, d1),
+        dot(d2, d2),
+        dot(d3, d3)
+      ), 0.0);
+      vec4 n = h * h * h * h * vec4(
+        dot(d0, hash33(i)),
+        dot(d1, hash33(i + i1)),
+        dot(d2, hash33(i + i2)),
+        dot(d3, hash33(i + 1.0))
+      );
+      return dot(vec4(31.316), n);
+    }
+
+    vec4 extractAlpha(vec3 colorIn) {
+      float a = max(max(colorIn.r, colorIn.g), colorIn.b);
+      return vec4(colorIn.rgb / (a + 1e-5), a);
+    }
+
+    // Colors mapped to our brand Indigo (#6366f1) and Cyan (#06b6d4)
+    const vec3 baseColor1 = vec3(0.388235, 0.400000, 0.945098);
+    const vec3 baseColor2 = vec3(0.023529, 0.713725, 0.831373);
+    const vec3 baseColor3 = vec3(0.035294, 0.047058, 0.078431);
+    const float innerRadius = 0.65;
+    const float noiseScale = 0.65;
+
+    float light1(float intensity, float attenuation, float dist) {
+      return intensity / (1.0 + dist * attenuation);
+    }
+
+    float light2(float intensity, float attenuation, float dist) {
+      return intensity / (1.0 + dist * dist * attenuation);
+    }
+
+    vec4 draw(vec2 uv) {
+      vec3 color1 = adjustHue(baseColor1, hue);
+      vec3 color2 = adjustHue(baseColor2, hue);
+      vec3 color3 = adjustHue(baseColor3, hue);
+
+      float ang = atan(uv.y, uv.x);
+      float len = length(uv);
+      float invLen = len > 0.0 ? 1.0 / len : 0.0;
+
+      float n0 = snoise3(vec3(uv * noiseScale, iTime * 0.5)) * 0.5 + 0.5;
+      float r0 = mix(mix(innerRadius, 1.0, 0.4), mix(innerRadius, 1.0, 0.6), n0);
+      float d0 = distance(uv, (r0 * invLen) * uv);
+      float v0 = light1(1.0, 10.0, d0);
+      v0 *= smoothstep(r0 * 1.05, r0, len);
+      float cl = cos(ang + iTime * 2.0) * 0.5 + 0.5;
+
+      float a = iTime * -1.0;
+      vec2 pos = vec2(cos(a), sin(a)) * r0;
+      float d = distance(uv, pos);
+      float v1 = light2(1.5, 5.0, d);
+      v1 *= light1(1.0, 50.0, d0);
+
+      float v2 = smoothstep(1.0, mix(innerRadius, 1.0, n0 * 0.5), len);
+      float v3 = smoothstep(innerRadius, mix(innerRadius, 1.0, 0.5), len);
+
+      vec3 col = mix(color1, color2, cl);
+      col = mix(color3, col, v0);
+      col = (col + v1) * v2 * v3;
+      col = clamp(col, 0.0, 1.0);
+
+      return extractAlpha(col);
+    }
+
+    vec4 mainImage(vec2 fragCoord) {
+      vec2 center = iResolution.xy * 0.5;
+      float size = min(iResolution.x, iResolution.y);
+      vec2 uv = (fragCoord - center) / size * 2.0;
+
+      float angle = rot;
+      float s = sin(angle);
+      float c = cos(angle);
+      uv = vec2(c * uv.x - s * uv.y, s * uv.x + c * uv.y);
+
+      uv.x += hover * hoverIntensity * 0.1 * sin(uv.y * 10.0 + iTime);
+      uv.y += hover * hoverIntensity * 0.1 * sin(uv.x * 10.0 + iTime);
+
+      return draw(uv);
+    }
+
+    void main() {
+      vec2 fragCoord = vUv * iResolution.xy;
+      vec4 col = mainImage(fragCoord);
+      gl_FragColor = vec4(col.rgb * col.a, col.a);
+    }
+  `;
+
+  async function initMicrophone() {
+    try {
+      stopMicrophone();
+
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          sampleRate: 44100,
+        },
+      });
+
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      analyser = audioContext.createAnalyser();
+      microphone = audioContext.createMediaStreamSource(mediaStream);
+
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.3;
+      analyser.minDecibels = -90;
+      analyser.maxDecibels = -10;
+
+      microphone.connect(analyser);
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      console.log("[orb] Mic initialized");
+    } catch (e) {
+      console.warn("[orb] Microphone access denied or not available:", e);
+    }
+  }
+
+  function stopMicrophone() {
+    try {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+      }
+      if (microphone) {
+        microphone.disconnect();
+        microphone = null;
+      }
+      if (analyser) {
+        analyser.disconnect();
+        analyser = null;
+      }
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close();
+        audioContext = null;
+      }
+      dataArray = null;
+      console.log("[orb] Mic stopped");
+    } catch (e) {
+      console.warn("[orb] Mic close error:", e);
+    }
+  }
+
+  function analyzeAudio() {
+    if (!analyser || !dataArray) return 0;
+    analyser.getByteFrequencyData(dataArray);
+
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const val = dataArray[i] / 255;
+      sum += val * val;
+    }
+    const rms = Math.sqrt(sum / dataArray.length);
+    return Math.min(rms * 1.5 * 3.0, 1.0);
+  }
+
+  const renderer = new Renderer({
+    alpha: true,
+    premultipliedAlpha: false,
+    antialias: true,
+    dpr: window.devicePixelRatio || 1
+  });
+  const gl = renderer.gl;
+  gl.canvas.style.backgroundColor = "transparent";
+  gl.clearColor(0, 0, 0, 0);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+  container.appendChild(gl.canvas);
+
+  const geometry = new Triangle(gl);
+  const program = new Program(gl, {
+    vertex: vert,
+    fragment: frag,
+    uniforms: {
+      iTime: { value: 0 },
+      iResolution: {
+        value: new Vec3(
+          gl.canvas.width,
+          gl.canvas.height,
+          gl.canvas.width / gl.canvas.height
+        )
+      },
+      hue: { value: 0 },
+      hover: { value: 0 },
+      rot: { value: 0 },
+      hoverIntensity: { value: 0 }
+    }
+  });
+
+  const mesh = new Mesh(gl, { geometry, program });
+
+  function resize() {
+    if (!container || !renderer || !gl) return;
+    const dpr = window.devicePixelRatio || 1;
+    const width = container.clientWidth || 300;
+    const height = container.clientHeight || 300;
+
+    renderer.setSize(width * dpr, height * dpr);
+    gl.canvas.style.width = width + "px";
+    gl.canvas.style.height = height + "px";
+
+    program.uniforms.iResolution.value.set(
+      gl.canvas.width,
+      gl.canvas.height,
+      gl.canvas.width / gl.canvas.height
+    );
+  }
+
+  window.addEventListener("resize", resize);
+  resize();
+
+  let lastTime = 0;
+  let currentRot = 0;
+  const baseRotationSpeed = 0.35;
+  const maxRotationSpeed = 1.25;
+  const maxHoverIntensity = 0.8;
+
+  function update(t) {
+    rafId = requestAnimationFrame(update);
+    if (!program) return;
+
+    const dt = (t - lastTime) * 0.001;
+    lastTime = t;
+    program.uniforms.iTime.value = t * 0.001;
+
+    let voiceLevel = 0;
+    let rotationSpeed = baseRotationSpeed;
+
+    if (listening) {
+      voiceLevel = analyzeAudio();
+      rotationSpeed = baseRotationSpeed + (voiceLevel * maxRotationSpeed * 2.0);
+      
+      program.uniforms.hover.value = Math.min(voiceLevel * 2.0, 1.0);
+      program.uniforms.hoverIntensity.value = Math.min(voiceLevel * maxHoverIntensity * 0.8, maxHoverIntensity);
+    } else {
+      program.uniforms.hover.value = 0;
+      program.uniforms.hoverIntensity.value = 0;
+    }
+
+    currentRot += dt * rotationSpeed;
+    program.uniforms.rot.value = currentRot;
+
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    renderer.render({ scene: mesh });
+  }
+
+  rafId = requestAnimationFrame(update);
+
+  return {
+    setListening(val) {
+      if (listening === val) return;
+      listening = val;
+      if (listening) {
+        initMicrophone();
+      } else {
+        stopMicrophone();
+      }
+    },
+    destroy() {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", resize);
+      stopMicrophone();
+      if (gl && gl.canvas) {
+        gl.canvas.style.display = "none";
+      }
+      if (container && gl && gl.canvas) {
+        try {
+          if (container.contains(gl.canvas)) {
+            container.removeChild(gl.canvas);
+          }
+        } catch (e) {}
+      }
+      if (gl) {
+        gl.getExtension("WEBGL_lose_context")?.loseContext();
+      }
+    }
+  };
+}

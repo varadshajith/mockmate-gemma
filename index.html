@@ -14,10 +14,16 @@
   <link rel="stylesheet" href="vendor/fonts.css">
 
   <!-- Styling -->
-  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="styles.css?v=99">
 
   <!-- Lucide Icons Library — vendored, pinned to v0.408.0 -->
   <script src="vendor/lucide.min.js"></script>
+
+  <!-- OGL WebGL Library (Offline ES Module Bridge) -->
+  <script type="module">
+    import { Renderer, Program, Mesh, Triangle, Vec3 } from './vendor/ogl.esm.js';
+    window.OGL = { Renderer, Program, Mesh, Triangle, Vec3 };
+  </script>
 </head>
 <body>
 
@@ -85,10 +91,10 @@
             </div>
           </div>
           
-          <!-- Profile Badge -->
-          <div class="profile-header-badge">
-            <div class="avatar-small" id="header-avatar">U</div>
-            <span class="user-name-header" id="header-username">You</span>
+          <!-- Offline Status Badge -->
+          <div class="offline-status-badge" title="Model running 100% locally on this machine. No data leaves your device.">
+            <span class="offline-pulse-dot"></span>
+            <span class="offline-badge-text">Offline Mode</span>
           </div>
         </div>
       </header>
@@ -133,6 +139,6 @@
   <script src="src/llm.js"></script>
   <script src="src/audio.js"></script>
   <!-- Core JavaScript Logic -->
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=125"></script>
 </body>
 </html>

@@ -360,7 +360,7 @@ function viewLanding() {
         <div class="hero-illustration">
           <div class="illustration-card" style="width: 480px; overflow: visible; position: relative;">
             <div style="height: 280px; display: flex; align-items: center; justify-content: center; position: relative; border-radius: inherit; overflow: hidden; background-color: var(--surface);">
-              <img src="ai-interviewer.png?v=120" alt="AI Interviewer" style="width: 100%; height: 100%; object-fit: cover;">
+              <img src="ai-interviewer.png?v=125" alt="AI Interviewer" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
             <div class="floating-feedback-card">
               <div class="feedback-icon-sparkle"><i data-lucide="sparkles"></i></div>

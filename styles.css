@@ -841,7 +841,7 @@ button {
   position: absolute;
   bottom: 30px;
   left: -20px;
-  background: #131924; /* Solid dark theme slate background */
+  background: var(--surface);
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
   padding: 16px;

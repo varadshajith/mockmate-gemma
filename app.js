@@ -358,15 +358,15 @@ function viewLanding() {
           </div>
         </div>
         <div class="hero-illustration">
-          <div class="illustration-card" style="width: 480px; overflow: visible;">
+          <div class="illustration-card" style="width: 480px; overflow: visible; position: relative;">
             <div style="height: 280px; display: flex; align-items: center; justify-content: center; position: relative; border-radius: inherit; overflow: hidden; background-color: var(--surface);">
               <img src="ai-interviewer.png" alt="AI Interviewer" style="width: 100%; height: 100%; object-fit: cover;">
-              <div class="floating-feedback-card">
-                <div class="feedback-icon-sparkle"><i data-lucide="sparkles"></i></div>
-                <div>
-                  <h4 style="font-size: 13px; font-weight:700;">AI Evaluation Complete</h4>
-                  <span class="badge badge-success">86% Score</span>
-                </div>
+            </div>
+            <div class="floating-feedback-card">
+              <div class="feedback-icon-sparkle"><i data-lucide="sparkles"></i></div>
+              <div>
+                <h4 style="font-size: 13px; font-weight:700;">AI Evaluation Complete</h4>
+                <span class="badge badge-success">86% Score</span>
               </div>
             </div>
           </div>

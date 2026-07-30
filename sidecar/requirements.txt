@@ -1,0 +1,14 @@
+# Audio sidecar dependencies. Deliberately minimal — see AGENTS.md.
+#
+# torch is NOT here and must not be added. Smart Turn v3 runs through ONNX
+# Runtime's CPU build, which has no CUDA runtime at all, so it cannot compete
+# with Gemma for the 6GB of VRAM even by accident.
+#
+# transformers is used ONLY for WhisperFeatureExtractor (log-mel features).
+# It runs without torch installed; it will log a warning saying models are
+# unavailable, which is expected and harmless — we only need the extractor.
+
+onnxruntime==1.28.0
+transformers==5.14.1
+websockets==16.1.1
+numpy==2.5.1

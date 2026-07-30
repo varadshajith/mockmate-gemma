@@ -1,0 +1,21 @@
+# Grammar for LLM.recommend() in src/llm.js — constrains llama-server's
+# /completion output to a single JSON object matching the recommend()
+# response shape exactly.
+
+root ::= (
+  "{" ws
+  "\"levelAdvice\":" ws string "," ws
+  "\"strengths\":" ws string-array "," ws
+  "\"focusAreas\":" ws string-array "," ws
+  "\"nextSteps\":" ws string ws
+  "}"
+)
+
+# At least one item is required — see the note in evaluate.gbnf.
+string-array ::= "[" ws string (ws "," ws string)* ws "]"
+
+string ::= "\"" char* "\""
+
+char ::= [^"\\\x7F\x00-\x1F] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
+
+ws ::= [ \t\n\r]*

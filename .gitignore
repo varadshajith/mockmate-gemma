@@ -27,3 +27,9 @@ Thumbs.db
 .cache/
 tmp/
 temp/
+
+# Python virtualenvs and caches
+.venv/
+__pycache__/
+*.pyc
+.commandcode/

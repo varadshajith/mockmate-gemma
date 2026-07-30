@@ -1,0 +1,35 @@
+# Grammar for LLM.evaluate() in src/llm.js — constrains llama-server's
+# /completion output to a single JSON object matching the evaluate() response
+# shape exactly, including the 4-value levelSignal enum.
+
+# Newlines are only insignificant whitespace inside a parenthesized group in
+# this grammar dialect, so the whole body is wrapped in one outer group.
+root ::= (
+  "{" ws
+  "\"score\":" ws score "," ws
+  "\"strengths\":" ws string-array "," ws
+  "\"improvements\":" ws string-array "," ws
+  "\"modelAnswer\":" ws string "," ws
+  "\"complexity\":" ws complexity "," ws
+  "\"feedback\":" ws string "," ws
+  "\"levelSignal\":" ws level-signal ws
+  "}"
+)
+
+score ::= "0" | [1-9] [0-9]? | "100"
+
+# At least one item is required. An empty array renders as a section heading
+# above an empty list in the results panel — a silent blank the candidate has
+# no way to interpret. evaluate() substitutes an honest placeholder if one
+# ever gets through anyway.
+string-array ::= "[" ws string (ws "," ws string)* ws "]"
+
+complexity ::= string | "null"
+
+level-signal ::= "\"step_up\"" | "\"stay\"" | "\"probe\"" | "\"step_down\""
+
+string ::= "\"" char* "\""
+
+char ::= [^"\\\x7F\x00-\x1F] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
+
+ws ::= [ \t\n\r]*

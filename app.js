@@ -89,7 +89,6 @@ function createFreshState(overrides = {}) {
     currentInterview: null,
     settings: {
       theme: "light",
-      webcamEnabled: false,
       aiVoiceEnabled: true
     },
     ...overrides
@@ -97,16 +96,6 @@ function createFreshState(overrides = {}) {
 }
 
 let APP_STATE = createFreshState();
-
-let activeWebcamStream = null;
-
-function stopActiveCamera() {
-  if (activeWebcamStream) {
-    activeWebcamStream.getTracks().forEach(track => track.stop());
-    activeWebcamStream = null;
-    console.log("Stopped active webcam streaming tracks.");
-  }
-}
 
 // Audio is offline-only. Every call site below routes through src/audio.js
 // so the local pipeline can be swapped in without touching view code.
@@ -183,7 +172,6 @@ function router() {
   let path = queryIndex !== -1 ? hashPath.substring(0, queryIndex) : hashPath;
   
   if (path !== "round") {
-    stopActiveCamera();
     stopActiveSpeechRecognition();
     if (window.activeVoiceOrb) {
       window.activeVoiceOrb.destroy();
@@ -774,7 +762,6 @@ function viewSetupWizard() {
     quickRound: "behavioral",
     roleId: "frontend",
     level: "easy",
-    webcamEnabled: APP_STATE.settings.webcamEnabled || false,
     aiVoiceEnabled: APP_STATE.settings.aiVoiceEnabled !== false,
     resumeUploaded: !!APP_STATE.user.resumeName,
     fileName: APP_STATE.user.resumeName || ""
@@ -803,7 +790,6 @@ function viewSetupWizard() {
   window.selectQuickRound = (r) => { setupData.quickRound = r; renderStep(); };
   window.selectRoleCard = (id) => { setupData.roleId = id; renderStep(); };
   window.selectLevelCard = (lv) => { setupData.level = lv; renderStep(); };
-  window.toggleSetupWebcam = (el) => { setupData.webcamEnabled = el.checked; APP_STATE.settings.webcamEnabled = el.checked; saveStateToStorage(); };
   window.toggleSetupVoice = (el) => { setupData.aiVoiceEnabled = el.checked; APP_STATE.settings.aiVoiceEnabled = el.checked; saveStateToStorage(); };
   window.triggerResumeUpload = () => document.getElementById("setup-resume-file").click();
   window.handleResumeFile = (input) => {
@@ -878,8 +864,6 @@ function viewSetupWizard() {
   function renderSettingsStep() {
     const role = getRole(setupData.roleId);
     return `<h3 class="setup-step-title">4. Settings</h3>
-      <div class="form-group" style="margin-top:16px;"><label class="form-label">Video</label>
-        <label class="checkbox-container" style="margin-top:8px;"><input type="checkbox" ${setupData.webcamEnabled ? 'checked' : ''} onchange="toggleSetupWebcam(this)"> Enable webcam preview</label></div>
       <div class="form-group" style="margin-top:16px;"><label class="form-label">Voice</label>
         <label class="checkbox-container" style="margin-top:8px;"><input type="checkbox" ${setupData.aiVoiceEnabled ? 'checked' : ''} onchange="toggleSetupVoice(this)"> Read questions aloud (AI voice)</label></div>
       <div class="form-group" style="margin-top:16px;"><label class="form-label">Resume (optional)</label>
@@ -900,7 +884,6 @@ function viewSetupWizard() {
       ${row("Role", role.name)}
       ${row("Level", `${r.label} — ${r.tag}`)}
       ${row("Rounds", roundNames)}
-      ${row("Webcam", setupData.webcamEnabled ? 'Enabled' : 'Disabled')}
       ${row("AI Voice", setupData.aiVoiceEnabled ? 'Enabled' : 'Disabled')}
       <div class="badge badge-info" style="margin-top:20px; display:flex; gap:8px; padding:12px 16px;"><i data-lucide="info" style="width:16px;height:16px;"></i><span>Timers scale with level — ${Math.round(r.behavioralTimer / 60)} min for the Behavioral round.</span></div>`;
   }
@@ -954,7 +937,6 @@ async function startInterviewSession(setup) {
     currentRoundIndex: 0,
     roundScores: {},
     allGraded: [],
-    webcamEnabled: setup.webcamEnabled || false,
     aiVoiceEnabled: setup.aiVoiceEnabled !== false,
     // working fields (reset per round by beginRound):
     roundType: null, roundCategoryLabel: "",
@@ -1201,52 +1183,18 @@ function viewInterview() {
           
           <!-- Right side AI panel -->
           <div class="card ai-panel-card" id="interview-ai-panel">
-            ${session.webcamEnabled ? `
-              <div class="webcam-video-container">
-                <video id="interview-webcam-element" class="webcam-video-element" autoplay muted playsinline></video>
-                <div class="webcam-overlay">
-                  <div class="webcam-status-badge">
-                    <span class="webcam-status-dot-active"></span>
-                    <span>LIVE PREVIEW • ANALYZING</span>
-                  </div>
-                  <div class="webcam-face-mesh"></div>
-                  <div class="webcam-telemetry">
-                    <div class="webcam-telemetry-row">
-                      <span class="webcam-telemetry-label">Eye Contact:</span>
-                      <span class="webcam-telemetry-value" id="webcam-val-eye">Calibrating...</span>
-                    </div>
-                    <div class="webcam-telemetry-row">
-                      <span class="webcam-telemetry-label">Posture Index:</span>
-                      <span class="webcam-telemetry-value" id="webcam-val-posture">Stable (98%)</span>
-                    </div>
-                    <div class="webcam-telemetry-row">
-                      <span class="webcam-telemetry-label">Aesthetic Noise:</span>
-                      <span class="webcam-telemetry-value" id="webcam-val-noise">Low (0.02)</span>
-                    </div>
-                  </div>
-                </div>
+            <div class="ai-avatar-container" id="voice-orb-container">
+              <div class="ai-avatar-circle">
+                <i data-lucide="sparkles"></i>
               </div>
-              
-              <div class="ai-status-indicator">
-                <span class="status-dot listening"></span>
-                <span id="ai-status-text">Webcam & Voice Active</span>
-              </div>
-              
-              <div id="state-card-wrapper" class="state-card-wrapper"></div>
-            ` : `
-              <div class="ai-avatar-container" id="voice-orb-container">
-                <div class="ai-avatar-circle">
-                  <i data-lucide="sparkles"></i>
-                </div>
-              </div>
-              
-              <div class="ai-status-indicator">
-                <span class="status-dot listening"></span>
-                <span id="ai-status-text">Listening</span>
-              </div>
-              
-              <div id="state-card-wrapper" class="state-card-wrapper"></div>
-            `}
+            </div>
+
+            <div class="ai-status-indicator">
+              <span class="status-dot listening"></span>
+              <span id="ai-status-text">Listening</span>
+            </div>
+
+            <div id="state-card-wrapper" class="state-card-wrapper"></div>
           </div>
         </div>
     </div>
@@ -1280,64 +1228,7 @@ function viewInterview() {
   }, 1000);
   
   updateTimerDisplay();
-  
-  // Start webcam if enabled
-  if (session.webcamEnabled) {
-    setTimeout(async () => {
-      const videoEl = document.getElementById("interview-webcam-element");
-      if (!videoEl) return;
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 }, audio: false });
-        videoEl.srcObject = stream;
-        activeWebcamStream = stream;
-        
-        let count = 0;
-        const telemetryInterval = setInterval(() => {
-          if (!document.getElementById("interview-webcam-element")) {
-            clearInterval(telemetryInterval);
-            return;
-          }
-          const eyeVal = document.getElementById("webcam-val-eye");
-          if (eyeVal) {
-            count++;
-            const rating = Math.random() > 0.15 ? "Normal (Optimal)" : "Averaging Away";
-            const color = rating.includes("Optimal") ? "var(--success)" : "var(--warning)";
-            eyeVal.innerText = rating;
-            eyeVal.style.color = color;
-          }
-        }, 3000);
-      } catch (err) {
-        console.error("Camera access denied or unavailable:", err);
-        showToast("Webcam unavailable. Falling back to text mode.", "info");
-        const rightPanel = document.getElementById("interview-ai-panel");
-        if (rightPanel) {
-          rightPanel.innerHTML = `
-            <div class="ai-avatar-container">
-              <div class="ai-avatar-wave"></div>
-              <div class="ai-avatar-wave"></div>
-              <div class="ai-avatar-wave"></div>
-              <div class="ai-avatar-circle">
-                <i data-lucide="sparkles"></i>
-              </div>
-            </div>
-            <div class="ai-status-indicator">
-              <span class="status-dot listening"></span>
-              <span id="ai-status-text">Listening (Text Mode)</span>
-            </div>
-            <div class="ai-details-panel">
-              <h4>Coach Tips</h4>
-              <div class="tip-item">
-                <i data-lucide="check-circle-2"></i>
-                <span>Webcam access was denied. The round continues; your spoken answer is unaffected.</span>
-              </div>
-            </div>
-          `;
-          lucide.createIcons();
-        }
-      }
-    }, 100);
-  }
-  
+
   // Character counter and Autosave
   const input = document.getElementById("interview-answer-input");
   const counter = document.getElementById("char-counter-text");
@@ -1808,7 +1699,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (session) clearInterval(session.timerInterval);
     
     stopSpeaking();
-    stopActiveCamera();
     stopActiveSpeechRecognition();
     
     APP_STATE.currentInterview = null;

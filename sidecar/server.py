@@ -19,6 +19,7 @@ import chunker as chunker_mod
 import config
 import transcribe
 import turn_detector
+import tts
 
 # Loaded once at startup rather than per connection: the ONNX session takes a
 # moment to build and there is only ever one microphone.
@@ -62,10 +63,31 @@ async def _handle_chunk(websocket, chunk):
     ))
 
 
-async def _run_capture(mic, chunker, chunks):
+async def _run_capture(mic, chunker, chunks, websocket):
     """Continuously drain pw-record and queue complete chunks for transcription."""
+    silence_frames = 0
+    silence_sent = False
+    has_spoken_yet = False
+    was_muted = False
     async for raw in mic.frames():
-        chunk = chunker.push(audio_level.pcm_bytes_to_float32(raw))
+        frame = audio_level.pcm_bytes_to_float32(raw)
+        if tts.capture_is_muted():
+            was_muted = True
+            continue
+        if was_muted:
+            chunker.reset_pause_tracking()
+            silence_frames = 0
+            was_muted = False
+        if audio_level.is_pause_frame(frame):
+            silence_frames += 1
+            if not silence_sent and silence_frames * config.FRAME_MS / 1000 >= config.SILENCE_NUDGE_SECONDS:
+                await websocket.send(_message("silence", seconds=round(
+                    silence_frames * config.FRAME_MS / 1000, 2), hasSpokenYet=has_spoken_yet))
+                silence_sent = True
+        else:
+            silence_frames = 0
+            has_spoken_yet = True
+        chunk = chunker.push(frame)
         if chunk is not None:
             await chunks.put(chunk)
 
@@ -96,6 +118,31 @@ def _report_capture_failure(websocket, task):
         asyncio.create_task(send_error())
 
 
+async def _speak(websocket, text):
+    started = False
+    async def notify_started():
+        nonlocal started
+        started = True
+        await websocket.send(_message("speaking_started"))
+
+    try:
+        await tts.speak(text, notify_started)
+    except tts.TTSUnavailable as err:
+        await websocket.send(_message("error", code="tts_unavailable", message=str(err)))
+    except tts.TTSFailed as err:
+        await websocket.send(_message("error", code="tts_failed", message=str(err)))
+    except websockets.exceptions.ConnectionClosed:
+        pass
+    except Exception as err:
+        await websocket.send(_message("error", code="tts_failed", message=str(err)))
+    finally:
+        if started:
+            try:
+                await websocket.send(_message("speaking_finished"))
+            except websockets.exceptions.ConnectionClosed:
+                pass
+
+
 async def handler(websocket):
     origin = websocket.request.headers.get("Origin")
     if origin is not None and origin not in config.ALLOWED_ORIGINS:
@@ -113,6 +160,7 @@ async def handler(websocket):
     chunker = None
     chunks = None
     mic = None
+    speak_task = None
     try:
         async for raw_message in websocket:
             try:
@@ -141,7 +189,7 @@ async def handler(websocket):
                             mic = None
                         continue
                     consumer_task = asyncio.create_task(_consume_chunks(websocket, chunks))
-                    capture_task = asyncio.create_task(_run_capture(mic, chunker, chunks))
+                    capture_task = asyncio.create_task(_run_capture(mic, chunker, chunks, websocket))
                     capture_task.add_done_callback(
                         lambda task: _report_capture_failure(websocket, task))
             elif command == "stop":
@@ -179,6 +227,14 @@ async def handler(websocket):
                             await websocket.send(_message("stopped"))
                         except websockets.exceptions.ConnectionClosed:
                             pass
+            elif command == "speak":
+                text = json.loads(raw_message).get("text")
+                if not isinstance(text, str) or not text.strip():
+                    await websocket.send(_message("error", code="tts_failed", message="expected non-empty text"))
+                else:
+                    speak_task = asyncio.create_task(_speak(websocket, text))
+            elif command == "stop_speaking":
+                await tts.stop()
             else:
                 await websocket.send(_message("error", code="unknown_command",
                                               message=f"unknown command {command!r}"))
@@ -196,6 +252,8 @@ async def handler(websocket):
             )
         if mic is not None:
             await mic.__aexit__(None, None, None)
+        if speak_task is not None:
+            await tts.stop()
 
 
 async def main():

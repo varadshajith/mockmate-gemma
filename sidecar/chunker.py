@@ -132,3 +132,9 @@ class Chunker:
         if self._held == 0:
             return None
         return self._emit(self._held, "stopped")
+
+    def reset_pause_tracking(self):
+        """Resume after speaker playback without treating it as candidate silence."""
+        self._pause_run = 0
+        self._last_pause_end = None
+        self._turn_checked_this_pause = False

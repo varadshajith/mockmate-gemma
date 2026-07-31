@@ -20,6 +20,7 @@ const LocalAudio = (() => {
   let onEvent = null;
   let transcriptChunks = new Map();
   let speaking = false;
+  let speakingSocket = null;
 
   function clearReadyTimer() {
     if (readyTimer !== null) clearTimeout(readyTimer);
@@ -197,14 +198,54 @@ const LocalAudio = (() => {
    * @param {string} text
    */
   function speak(text) {
-    // TODO: wire to local audio pipeline
+    if (!text || !text.trim()) return;
+    stopSpeaking();
     speaking = true;
-    console.log("[audio stub] speak:", text);
+    const ws = new WebSocket(SIDECAR_URL);
+    speakingSocket = ws;
+
+    ws.onmessage = (message) => {
+      if (speakingSocket !== ws) return;
+      let event;
+      try {
+        event = JSON.parse(message.data);
+      } catch (_err) {
+        speaking = false;
+        speakingSocket = null;
+        ws.close();
+        return;
+      }
+      if (event.type === "ready") {
+        ws.send(JSON.stringify({ type: "speak", text }));
+      } else if (event.type === "speaking_finished" || event.type === "error") {
+        speaking = false;
+        speakingSocket = null;
+        ws.close();
+      }
+    };
+    ws.onclose = () => {
+      if (speakingSocket === ws) {
+        speaking = false;
+        speakingSocket = null;
+      }
+    };
   }
 
   function stopSpeaking() {
-    // TODO: wire to local audio pipeline
+    const ws = speakingSocket;
     speaking = false;
+    speakingSocket = null;
+    if (!ws) return;
+    if (ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify({ type: "stop_speaking" }));
+      } catch (_err) {
+        // The close below completes cleanup if the socket raced closed.
+      }
+    }
+    // The TTS connection is intentionally short-lived. Closing it also makes
+    // the sidecar stop any playback if the stop command raced the handshake.
+    ws.close();
   }
 
   function isSpeaking() {

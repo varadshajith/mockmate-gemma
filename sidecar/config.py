@@ -74,6 +74,18 @@ SMART_TURN_THRESHOLD = 0.5
 # One evaluation per pause, at ~94ms of CPU each.
 SMART_TURN_PAUSE_TRIGGER_MS = MIN_PAUSE_MS
 
+# --- Silence and local text-to-speech -------------------------------------
+SILENCE_NUDGE_SECONDS = float(os.environ.get("SILENCE_NUDGE_SECONDS", "12.0"))
+TTS_CAPTURE_TAIL_SECONDS = float(os.environ.get("TTS_CAPTURE_TAIL_SECONDS", "0.3"))
+PIPER_PATH = os.environ.get("PIPER_PATH", "/home/mayur/.local/bin/piper")
+PIPER_MODEL_PATH = os.environ.get(
+    "PIPER_MODEL_PATH", "/home/mayur/piper/en/en_GB/cori/high/en_GB-cori-high.onnx")
+PW_PLAY_PATH = os.environ.get("PW_PLAY_PATH", "/usr/bin/pw-play")
+PIPER_SAMPLE_RATE = int(os.environ.get("PIPER_SAMPLE_RATE", "22050"))
+PIPER_CHANNELS = int(os.environ.get("PIPER_CHANNELS", "1"))
+PW_PLAY_ARGS = ("--rate", str(PIPER_SAMPLE_RATE), "--channels", str(PIPER_CHANNELS),
+                "--format", "s16", "--raw", "-")
+
 # --- llama-server ----------------------------------------------------------
 LLAMA_SERVER_URL = os.environ.get("LLAMA_SERVER_URL", "http://127.0.0.1:8080")
 TRANSCRIBE_TIMEOUT_S = 120

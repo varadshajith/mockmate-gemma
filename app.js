@@ -114,6 +114,13 @@ function stopSpeaking() {
   LocalAudio.stopSpeaking();
 }
 
+function readResultsSummary(report) {
+  const recommendations = report.recommendations || {};
+  const strengths = (recommendations.strengths || []).join(". ");
+  const focusAreas = (recommendations.focusAreas || []).join(". ");
+  speakText(`Your overall score is ${report.score} percent. Strengths: ${strengths || "not available"}. Focus areas: ${focusAreas || "not available"}.`);
+}
+
 function applySystemTheme() {
   if (APP_STATE.settings && APP_STATE.settings.theme === "dark") {
     document.body.classList.add("dark-theme");
@@ -1876,6 +1883,7 @@ async function generateFinalAnalysisReport() {
     date: new Date().toISOString().split('T')[0],
     duration: session.durationLabel || "",
     score: overall,
+    aiVoiceEnabled: session.aiVoiceEnabled === true,
     roundScores,
     recommendations,
     answers: graded,
@@ -1933,6 +1941,7 @@ function viewResults() {
           <h3 style="font-size:20px; margin-bottom:8px;">${report.role} Report</h3>
           ${report.level ? `<span class="level-badge level-${(LEVEL_RULES[report.level] || {}).color || 'green'}" style="margin-bottom:8px;">${(LEVEL_RULES[report.level] || {}).label || report.level}</span>` : ''}
           <p style="color:var(--text-muted); font-size:14px;">Date: ${report.date} | Duration: ${report.duration}</p>
+          ${report.aiVoiceEnabled ? `<button class="btn btn-secondary" onclick="readResultsSummaryById('${report.id}')" style="margin-top:12px;">Read summary aloud</button>` : ''}
         </div>
         
         <!-- Radar Chart Card -->
@@ -2044,6 +2053,11 @@ function viewResults() {
     drawRadarChart("radar-svg-chart", report.skills);
   }, 100);
 }
+
+window.readResultsSummaryById = function(reportId) {
+  const report = APP_STATE.history.find(item => item.id === reportId);
+  if (report) readResultsSummary(report);
+};
 
 window.toggleCollapsibleCard = function(button) {
   const card = button.parentElement;
@@ -2511,6 +2525,8 @@ window.toggleSpeechToText = function() {
     return;
   }
 
+  stopSpeaking();
+
   let originalText = textarea.value.trim();
   if (originalText.length > 0) originalText += " ";
 
@@ -2541,6 +2557,13 @@ window.toggleSpeechToText = function() {
   }, (event) => {
     if (event.type === "too_quiet") {
       showToast("Your voice was too quiet to transcribe. Please speak louder.", "warning");
+    } else if (event.type === "silence") {
+      const session = APP_STATE.currentInterview;
+      if (session && session.aiVoiceEnabled) {
+        speakText(event.hasSpokenYet
+          ? "Do you need more time, or shall I move on?"
+          : "Take your time. Would you like me to explain the question?");
+      }
     } else if (event.type === "error") {
       showToast(event.message || "Local audio transcription failed.", "error");
     }
@@ -2553,6 +2576,7 @@ window.replayQuestionAudio = function() {
   if (!session) return;
   const q = session.questions[session.currentQuestionIndex];
   if (q) {
+    if (LocalAudio.isListening()) LocalAudio.stopListening();
     speakText(q.text);
     showToast("Replaying question audio...", "info");
   }

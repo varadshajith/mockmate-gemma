@@ -205,9 +205,7 @@ function router() {
   if (pageTitle) {
     pageTitle.innerText = path.charAt(0).toUpperCase() + path.slice(1);
   }
-  
-  // Close dropdowns on route changes
-  document.getElementById("notification-dropdown").classList.add("hidden");
+
 
   // Render View
   viewFn();
@@ -241,21 +239,6 @@ function initAppShell() {
     e.stopPropagation();
   });
 
-  // Dropdown Triggers
-  const notifBell = document.getElementById("notification-bell");
-  const notifDropdown = document.getElementById("notification-dropdown");
-  notifBell.addEventListener("click", (e) => {
-    e.stopPropagation();
-    notifDropdown.classList.toggle("hidden");
-  });
-
-  // Notifications Renderer
-  renderNotifications();
-  document.getElementById("clear-notifications").addEventListener("click", () => {
-    APP_STATE.notifications = [];
-    renderNotifications();
-    showToast("Notifications cleared", "info");
-  });
   
   // Hash listener
   window.addEventListener("hashchange", router);
@@ -264,36 +247,6 @@ function initAppShell() {
   router();
 }
 
-function renderNotifications() {
-  const list = document.getElementById("notifications-list");
-  const badge = document.getElementById("notification-badge");
-  const unreadCount = APP_STATE.notifications.filter(n => n.unread).length;
-  
-  if (unreadCount > 0) {
-    badge.innerText = unreadCount;
-    badge.classList.remove("hidden");
-  } else {
-    badge.classList.add("hidden");
-  }
-  
-  if (APP_STATE.notifications.length === 0) {
-    list.innerHTML = `<div class="p-4 text-center text-sm text-light">No new notifications</div>`;
-    return;
-  }
-  
-  list.innerHTML = APP_STATE.notifications.map(n => `
-    <div class="dropdown-item-notification ${n.unread ? 'unread' : ''}" onclick="markNotifRead(${n.id})">
-      <p>${n.text}</p>
-      <span>${n.time}</span>
-    </div>
-  `).join('');
-}
-
-window.markNotifRead = function(id) {
-  const notif = APP_STATE.notifications.find(n => n.id === id);
-  if (notif) notif.unread = false;
-  renderNotifications();
-};
 
 // Toast Alerts
 function showToast(message, type = "success") {
@@ -330,10 +283,10 @@ function viewLanding() {
   view.innerHTML = `
     <div class="landing-view">
       <nav class="landing-nav">
-        <div class="sidebar-brand">
+        <a href="#/landing" class="sidebar-brand">
           <div class="brand-logo"><i data-lucide="sparkles"></i></div>
           <span class="brand-name">Interview <span class="accent-text">Coach</span></span>
-        </div>
+        </a>
         <div class="landing-nav-links">
           <a href="#features">Features</a>
           <a href="#howitworks">How it works</a>
@@ -704,7 +657,8 @@ function drawGrowthChart(canvasId) {
   }
   
   // Data Points (Scores of history items, reverse to show chronological order)
-  const scores = [...APP_STATE.history].reverse().map(h => h.score);
+  const recentHistory = APP_STATE.history.slice(0, 8);
+  const scores = recentHistory.reverse().map(h => h.score);
   if (scores.length === 0) return;
   
   const paddingLeft = 35;
@@ -1601,64 +1555,70 @@ async function evaluateAndMaybeProbe(userAnswer) {
 }
 
 window.submitInterviewAnswer = async function() {
-  const ans = document.getElementById("interview-answer-input").value.trim();
-  if (ans.length === 0) {
-    showToast("Please enter an answer or click Skip", "error");
-    return;
-  }
-
-  stopSpeaking();
-  stopActiveSpeechRecognition();
-  saveAnswer(ans);
-  showToast("Answer saved successfully");
-  
-  const session = APP_STATE.currentInterview;
-  const currentQ = session.questions[session.currentQuestionIndex];
-
-  if (currentQ && currentQ.category !== "Adaptive Follow-up" && !session.hasInjectedFollowUp) {
-    // Determine the probed slot
-    const isSD = isTechnicalQuestion(currentQ, session.roundType);
-    const slots = isSD ? SLOT_DEFINITIONS.systemDesign : SLOT_DEFINITIONS.behavioral;
-    session.probedSlot = null;
-    session.lastBaseAnswerText = ans;
-
-    for (const slot of slots) {
-      const status = getSlotStatus(ans, slot.filled, slot.vague);
-      if (status === "missing" || status === "vague") {
-        session.probedSlot = slot.id;
-        break;
-      }
+  try {
+    const ans = document.getElementById("interview-answer-input").value.trim();
+    if (ans.length === 0) {
+      showToast("Please enter an answer or click Skip", "error");
+      return;
     }
 
-    // Force follow-up injection if we found an incomplete slot
-    if (session.probedSlot) {
-      if (isSD) {
-        const slotName = slots.find(s => s.id === session.probedSlot).name;
-        const followUpQ = {
-          id: "followup-sd",
-          text: `You explained the system design, but the ${slotName} aspect was unclear. Can you expand on the ${slotName} and the details surrounding it?`,
-          category: "Adaptive Follow-up",
-          hint: `Add details for the missing slot: ${slotName}.`,
-          modelAnswer: `Detailed explanation covering the slot ${slotName}.`
-        };
-        session.questions.splice(session.currentQuestionIndex + 1, 0, followUpQ);
-        session.hasInjectedFollowUp = true;
-        showToast(`Probing missing ${slotName}...`, "info");
+    stopSpeaking();
+    stopActiveSpeechRecognition();
+    saveAnswer(ans);
+    showToast("Answer saved successfully");
+    
+    const session = APP_STATE.currentInterview;
+    const currentQ = session.questions[session.currentQuestionIndex];
+
+    if (currentQ && currentQ.category !== "Adaptive Follow-up" && !session.hasInjectedFollowUp) {
+      // Determine the probed slot
+      const isSD = isTechnicalQuestion(currentQ, session.roundType);
+      const slots = isSD ? SLOT_DEFINITIONS.systemDesign : SLOT_DEFINITIONS.behavioral;
+      session.probedSlot = null;
+      session.lastBaseAnswerText = ans;
+
+      for (const slot of slots) {
+        const status = getSlotStatus(ans, slot.filled, slot.vague);
+        if (status === "missing" || status === "vague") {
+          session.probedSlot = slot.id;
+          break;
+        }
+      }
+
+      // Force follow-up injection if we found an incomplete slot
+      if (session.probedSlot) {
+        if (isSD) {
+          const slotName = slots.find(s => s.id === session.probedSlot).name;
+          const followUpQ = {
+            id: "followup-sd",
+            text: `You explained the system design, but the ${slotName} aspect was unclear. Can you expand on the ${slotName} and the details surrounding it?`,
+            category: "Adaptive Follow-up",
+            hint: `Add details for the missing slot: ${slotName}.`,
+            modelAnswer: `Detailed explanation covering the slot ${slotName}.`
+          };
+          session.questions.splice(session.currentQuestionIndex + 1, 0, followUpQ);
+          session.hasInjectedFollowUp = true;
+          showToast(`Probing missing ${slotName}...`, "info");
+        } else {
+          await evaluateAndMaybeProbe(ans);
+        }
       } else {
-        await checkAndInjectFollowUp(ans);
+        // Backwards compatibility/default fallback triggers if everything was filled
+        await evaluateAndMaybeProbe(ans);
       }
     } else {
-      // Backwards compatibility/default fallback triggers if everything was filled
-      await checkAndInjectFollowUp(ans);
+      // Reset state flags after the follow-up question finishes
+      session.hasInjectedFollowUp = false;
+      session.probedSlot = null;
+      session.lastBaseAnswerText = "";
     }
-  } else {
-    // Reset state flags after the follow-up question finishes
-    session.hasInjectedFollowUp = false;
-    session.probedSlot = null;
-    session.lastBaseAnswerText = "";
+    
+    nextInterviewStep();
+  } catch (err) {
+    console.error("[mockmate] submitInterviewAnswer error:", err);
+    showToast("Error during submit: " + err.message, "error");
+    alert("Error during submit: " + err.stack);
   }
-  
-  nextInterviewStep();
 };
 
 function saveAnswer(text) {
@@ -2433,7 +2393,10 @@ function drawLevelProgressionChart(canvasId) {
 
 // Chart 3 — Behavioral / System Design score trend across sessions (chronological).
 function drawRoundComparisonChart(canvasId) {
-  const chrono = [...APP_STATE.history].reverse().filter(h => h.roundScores);
+  let chrono = [...APP_STATE.history].reverse().filter(h => h.roundScores);
+  if (chrono.length > 15) {
+    chrono = chrono.slice(chrono.length - 15);
+  }
   const pick = (h, rt) => (h.roundScores[rt] && !h.roundScores[rt].skipped) ? h.roundScores[rt].score : null;
   const series = [
     { color: "var(--primary)", points: chrono.map(h => pick(h, "behavioral")) },

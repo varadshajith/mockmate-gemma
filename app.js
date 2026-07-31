@@ -2522,12 +2522,7 @@ window.toggleSpeechToText = function() {
     window.activeVoiceOrb.setListening(true);
   }
 
-  LocalAudio.startListening((transcript) => {
-    textarea.value = originalText + transcript;
-    const counter = document.getElementById("char-counter-text");
-    if (counter) counter.innerText = `${textarea.value.length} / 2000 characters`;
-    drawLiveStateCard();
-
+  function resetVoiceButton() {
     if (!LocalAudio.isListening()) {
       btn.classList.remove("recording");
       label.innerText = "Voice Answer";
@@ -2535,6 +2530,21 @@ window.toggleSpeechToText = function() {
         window.activeVoiceOrb.setListening(false);
       }
     }
+  }
+
+  LocalAudio.startListening((transcript) => {
+    textarea.value = originalText + transcript;
+    const counter = document.getElementById("char-counter-text");
+    if (counter) counter.innerText = `${textarea.value.length} / 2000 characters`;
+    drawLiveStateCard();
+    resetVoiceButton();
+  }, (event) => {
+    if (event.type === "too_quiet") {
+      showToast("Your voice was too quiet to transcribe. Please speak louder.", "warning");
+    } else if (event.type === "error") {
+      showToast(event.message || "Local audio transcription failed.", "error");
+    }
+    resetVoiceButton();
   });
 };
 

@@ -44,13 +44,23 @@ class MicrophoneCapture:
         return self
 
     async def __aexit__(self, *_exc):
-        if self._proc and self._proc.returncode is None:
-            self._proc.terminate()
+        if self._proc is not None:
+            self.stop()
             try:
                 await asyncio.wait_for(self._proc.wait(), timeout=2)
             except asyncio.TimeoutError:
                 self._proc.kill()
+                await self._proc.wait()
         self._proc = None
+
+    def stop(self):
+        """Ask pw-record to stop, allowing its stdout pipe to reach EOF."""
+        if self._proc is not None and self._proc.returncode is None:
+            try:
+                self._proc.terminate()
+            except ProcessLookupError:
+                # The process exited between checking returncode and signalling.
+                pass
 
     async def frames(self):
         """Yield exactly FRAME_BYTES at a time until the process ends."""

@@ -62,13 +62,38 @@ async def _handle_chunk(websocket, chunk):
     ))
 
 
-async def _run_capture(websocket, chunker):
-    """Capture until the client says stop or disconnects."""
-    async with capture.MicrophoneCapture() as mic:
-        async for raw in mic.frames():
-            chunk = chunker.push(audio_level.pcm_bytes_to_float32(raw))
-            if chunk is not None:
-                await _handle_chunk(websocket, chunk)
+async def _run_capture(mic, chunker, chunks):
+    """Continuously drain pw-record and queue complete chunks for transcription."""
+    async for raw in mic.frames():
+        chunk = chunker.push(audio_level.pcm_bytes_to_float32(raw))
+        if chunk is not None:
+            await chunks.put(chunk)
+
+
+async def _consume_chunks(websocket, chunks):
+    """Transcribe queued chunks serially so their messages retain chunk order."""
+    while True:
+        chunk = await chunks.get()
+        if chunk is None:
+            return
+        await _handle_chunk(websocket, chunk)
+
+
+def _report_capture_failure(websocket, task):
+    """Surface capture failures instead of leaving the browser listening forever."""
+    try:
+        task.result()
+    except asyncio.CancelledError:
+        return
+    except Exception as err:
+        async def send_error():
+            try:
+                await websocket.send(_message(
+                    "error", code="capture_failed", message=str(err)))
+            except websockets.exceptions.ConnectionClosed:
+                pass
+
+        asyncio.create_task(send_error())
 
 
 async def handler(websocket):
@@ -84,7 +109,10 @@ async def handler(websocket):
     ))
 
     capture_task = None
+    consumer_task = None
     chunker = None
+    chunks = None
+    mic = None
     try:
         async for raw_message in websocket:
             try:
@@ -97,19 +125,60 @@ async def handler(websocket):
             if command == "start":
                 if capture_task is None or capture_task.done():
                     chunker = chunker_mod.Chunker(_detector)
-                    capture_task = asyncio.create_task(_run_capture(websocket, chunker))
-            elif command == "stop":
-                if capture_task is not None:
-                    final_chunk = chunker.flush()
-                    if final_chunk is not None:
-                        await _handle_chunk(websocket, final_chunk)
-                    capture_task.cancel()
+                    # This queue intentionally has no cap. Transcription is faster
+                    # than real time, while a cap would reintroduce dropped speech.
+                    chunks = asyncio.Queue()
                     try:
-                        await capture_task
-                    except asyncio.CancelledError:
-                        pass
-                    capture_task = None
-                    chunker = None
+                        mic = capture.MicrophoneCapture()
+                        await mic.__aenter__()
+                    except Exception as err:
+                        try:
+                            await websocket.send(_message(
+                                "error", code="capture_failed", message=str(err)))
+                        finally:
+                            chunker = None
+                            chunks = None
+                            mic = None
+                        continue
+                    consumer_task = asyncio.create_task(_consume_chunks(websocket, chunks))
+                    capture_task = asyncio.create_task(_run_capture(mic, chunker, chunks))
+                    capture_task.add_done_callback(
+                        lambda task: _report_capture_failure(websocket, task))
+            elif command == "stop":
+                if mic is None:
+                    # No live capture — a previous start failed to spawn one.
+                    # Acknowledge anyway so the client's drain does not have to
+                    # sit through its timeout waiting for a stop that is done.
+                    await websocket.send(_message("stopped"))
+                elif capture_task is not None:
+                    try:
+                        # Terminating pw-record makes frames() consume all bytes already
+                        # buffered in stdout before it observes EOF. Do not cancel this
+                        # task: a transcription may be running and later speech may still
+                        # be waiting in the pipe.
+                        mic.stop()
+                        try:
+                            await capture_task
+                        except Exception:
+                            # The done callback has already reported this to the client;
+                            # still drain any chunks captured before the failure.
+                            pass
+                        final_chunk = chunker.flush()
+                        if final_chunk is not None:
+                            await chunks.put(final_chunk)
+                        await chunks.put(None)
+                        await consumer_task
+                        await mic.__aexit__(None, None, None)
+                    finally:
+                        capture_task = None
+                        consumer_task = None
+                        chunker = None
+                        chunks = None
+                        mic = None
+                        try:
+                            await websocket.send(_message("stopped"))
+                        except websockets.exceptions.ConnectionClosed:
+                            pass
             else:
                 await websocket.send(_message("error", code="unknown_command",
                                               message=f"unknown command {command!r}"))
@@ -118,6 +187,15 @@ async def handler(websocket):
     finally:
         if capture_task is not None:
             capture_task.cancel()
+        if consumer_task is not None:
+            consumer_task.cancel()
+        if capture_task is not None or consumer_task is not None:
+            await asyncio.gather(
+                *(task for task in (capture_task, consumer_task) if task is not None),
+                return_exceptions=True,
+            )
+        if mic is not None:
+            await mic.__aexit__(None, None, None)
 
 
 async def main():

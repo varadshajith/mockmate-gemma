@@ -32,12 +32,12 @@
     
     <!-- Left Sidebar -->
     <aside id="app-sidebar" class="app-sidebar">
-      <div class="sidebar-brand">
+      <a href="#/landing" class="sidebar-brand">
         <div class="brand-logo">
           <i data-lucide="sparkles" class="indigo-icon"></i>
         </div>
         <span class="brand-name">Interview <span class="accent-text">Coach</span></span>
-      </div>
+      </a>
 
       <nav class="sidebar-nav">
         <a href="#/dashboard" class="nav-item active" id="nav-dashboard">
@@ -72,24 +72,7 @@
         </div>
         
         <div class="header-right">
-          <!-- Notification Bell -->
-          <div class="notification-container">
-            <button id="notification-bell" class="header-action-btn" aria-label="Notifications">
-              <i data-lucide="bell"></i>
-              <span class="notification-badge" id="notification-badge">2</span>
-            </button>
-            
-            <!-- Notifications Dropdown -->
-            <div id="notification-dropdown" class="notification-dropdown hidden">
-              <div class="dropdown-header">
-                <h3>Notifications</h3>
-                <button id="clear-notifications" class="ghost-btn-sm">Clear all</button>
-              </div>
-              <div class="dropdown-content" id="notifications-list">
-                <!-- Injected via JS -->
-              </div>
-            </div>
-          </div>
+
           
           <!-- Offline Status Badge -->
           <div class="offline-status-badge" title="Model running 100% locally on this machine. No data leaves your device.">

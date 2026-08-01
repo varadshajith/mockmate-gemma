@@ -14,6 +14,7 @@ const LLM = (() => {
   const EVALUATE_GRAMMAR_PATH = "grammars/evaluate.gbnf";
   const FOLLOWUP_GRAMMAR_PATH = "grammars/followup.gbnf";
   const RECOMMEND_GRAMMAR_PATH = "grammars/recommend.gbnf";
+  const CONTRADICTION_GRAMMAR_PATH = "grammars/contradiction.gbnf";
   const GENERATE_QUESTION_GRAMMAR_PATH = "grammars/generate_question.gbnf";
 
   // Generous on purpose. A warm request is ~2.3s, but the first call after
@@ -613,7 +614,232 @@ const LLM = (() => {
     return null;
   }
 
-  return { evaluate, followup, recommend, generateQuestions };
+  let contradictionGrammarCache = null;
+  async function loadContradictionGrammar() {
+    if (contradictionGrammarCache) return contradictionGrammarCache;
+    try {
+      if (typeof window === "undefined" && typeof process !== "undefined") {
+        try {
+          const fs = require("fs");
+          const path = require("path");
+          const grammarPath = path.resolve(__dirname, "..", CONTRADICTION_GRAMMAR_PATH);
+          if (fs.existsSync(grammarPath)) {
+            contradictionGrammarCache = fs.readFileSync(grammarPath, "utf8");
+            return contradictionGrammarCache;
+          }
+        } catch (_) {}
+      }
+      const res = await fetch(CONTRADICTION_GRAMMAR_PATH);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      contradictionGrammarCache = await res.text();
+      return contradictionGrammarCache;
+    } catch (err) {
+      throw new Error(`checkContradiction(): could not load grammar ${CONTRADICTION_GRAMMAR_PATH} — ${err.message}`);
+    }
+  }
+
+  function isNearMatch(needle, haystack) {
+    if (!needle || !haystack) return false;
+    const n = String(needle).toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
+    const h = String(haystack).toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
+    if (!n || !h) return false;
+    if (h.includes(n) || n.includes(h)) return true;
+
+    const nWords = n.split(/\s+/).filter(w => w.length > 3);
+    if (nWords.length === 0) return false;
+    const matches = nWords.filter(w => h.includes(w));
+    return (matches.length / nWords.length) >= 0.5;
+  }
+
+  function areClaimsNearIdentical(claim1, claim2) {
+    if (!claim1 || !claim2) return true;
+    const c1 = String(claim1).toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
+    const c2 = String(claim2).toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
+    if (c1 === c2) return true;
+    return isNearMatch(c1, c2) && isNearMatch(c2, c1);
+  }
+
+  async function runSingleContradictionCheck({ priorText, currentAnswerAudioB64, grammar }) {
+    const prompt = [
+      "You are evaluating a candidate's spoken interview answer against their prior statements.",
+      "",
+      `Prior Candidate Statement(s):\n${priorText}`,
+      "",
+      "Listen to the candidate's spoken audio for the current answer.",
+      "Determine if what they say in the current spoken audio directly contradicts what they claimed in their prior statement(s).",
+      "If there is a direct contradiction:",
+      "- Set \"contradicts\": true",
+      "- \"priorClaim\": exact quote or specific statement from the prior text that is contradicted",
+      "- \"currentClaim\": statement made in the spoken audio that contradicts it",
+      "- \"confidence\": \"high\"",
+      "",
+      "If there is no direct contradiction, or if you are unsure:",
+      "- Set \"contradicts\": false",
+      "- \"priorClaim\": null",
+      "- \"currentClaim\": null",
+      "- \"confidence\": \"high\" or \"low\"",
+      "",
+      "Respond with a single JSON object matching the grammar."
+    ].join("\n");
+
+    const payload = {
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "input_audio",
+              input_audio: {
+                data: currentAnswerAudioB64,
+                format: "wav"
+              }
+            }
+          ]
+        }
+      ],
+      grammar,
+      temperature: 0.6,
+      max_tokens: 512,
+      stream: false,
+      chat_template_kwargs: { enable_thinking: false }
+    };
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let res;
+    try {
+      res = await fetch(`${LLAMA_SERVER_URL}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      throw new Error(`checkContradiction(): fetch failed — ${err.message}`);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!res.ok) {
+      throw new Error(`checkContradiction(): llama-server /v1/chat/completions returned ${res.status}`);
+    }
+
+    const data = await res.json();
+    try {
+      const content = data.choices[0].message.content;
+      return typeof content === "string" ? JSON.parse(content) : content;
+    } catch (err) {
+      throw new Error(`checkContradiction(): failed to parse response JSON — ${err.message}`);
+    }
+  }
+
+  function validateSingleResponse(res, priorText, currentTranscript) {
+    if (!res || typeof res !== "object") return { contradicts: false };
+    if (res.contradicts !== true) return { contradicts: false };
+
+    // Guard 3: Only act on confidence "high"
+    if (res.confidence !== "high") return { contradicts: false };
+
+    const priorClaim = (res.priorClaim || "").trim();
+    const currentClaim = (res.currentClaim || "").trim();
+
+    if (!priorClaim || !currentClaim) return { contradicts: false };
+
+    // Guard 1a: Prior claim must appear in prior text as a near match
+    if (!isNearMatch(priorClaim, priorText)) {
+      console.warn(`checkContradiction(): Guard 1a failed (hallucinated prior claim "${priorClaim}")`);
+      return { contradicts: false };
+    }
+
+    // Guard 2: priorClaim and currentClaim cannot be near-identical strings (echo guard)
+    if (areClaimsNearIdentical(priorClaim, currentClaim)) {
+      console.warn(`checkContradiction(): Guard 2 failed (prior and current claims are echo/identical: "${priorClaim}")`);
+      return { contradicts: false };
+    }
+
+    return { contradicts: true, priorClaim, currentClaim };
+  }
+
+  /**
+   * Promotes validated contradiction detection: prior answer as TEXT + current answer as AUDIO (<=30s).
+   * Applies all failure guards including 3-of-3 triple-run agreement.
+   * @param {{ priorAnswers: string|string[], currentAnswerAudioB64: string, currentTranscript?: string }} req
+   * @returns {Promise<{ contradicts: boolean, priorClaim: string|null, currentClaim: string|null, confidence: string }>}
+   */
+  async function checkContradiction(req) {
+    if (!req || !req.currentAnswerAudioB64) {
+      return { contradicts: false, priorClaim: null, currentClaim: null, confidence: "low" };
+    }
+
+    const priorText = Array.isArray(req.priorAnswers)
+      ? req.priorAnswers.slice(-2).join("\n\n")
+      : String(req.priorAnswers || "");
+
+    if (!priorText.trim()) {
+      return { contradicts: false, priorClaim: null, currentClaim: null, confidence: "low" };
+    }
+
+    const currentTranscript = req.currentTranscript || "";
+    const grammar = await loadContradictionGrammar();
+
+    try {
+      // Guard 4: Sequential Triple-Run (3-of-3) Consensus Check with temp 0.6
+      // Run 1
+      const res1Raw = await runSingleContradictionCheck({ priorText, currentAnswerAudioB64: req.currentAnswerAudioB64, grammar });
+      const run1 = validateSingleResponse(res1Raw, priorText, currentTranscript);
+      if (!run1.contradicts) {
+        return { contradicts: false, priorClaim: null, currentClaim: null, confidence: "low" };
+      }
+
+      // Run 2
+      const res2Raw = await runSingleContradictionCheck({ priorText, currentAnswerAudioB64: req.currentAnswerAudioB64, grammar });
+      const run2 = validateSingleResponse(res2Raw, priorText, currentTranscript);
+      if (!run2.contradicts) {
+        console.warn(`checkContradiction(): Guard 4 failed — run 2 returned no contradiction`);
+        return { contradicts: false, priorClaim: null, currentClaim: null, confidence: "low" };
+      }
+
+      const run12PriorMatch = isNearMatch(run1.priorClaim, run2.priorClaim) || isNearMatch(run2.priorClaim, run1.priorClaim);
+      const run12CurrentMatch = isNearMatch(run1.currentClaim, run2.currentClaim) || isNearMatch(run2.currentClaim, run1.currentClaim);
+      if (!run12PriorMatch || !run12CurrentMatch) {
+        console.warn(`checkContradiction(): Guard 4 failed — run 1 & 2 claim mismatch ("${run1.priorClaim}" vs "${run2.priorClaim}")`);
+        return { contradicts: false, priorClaim: null, currentClaim: null, confidence: "low" };
+      }
+
+      // Run 3
+      const res3Raw = await runSingleContradictionCheck({ priorText, currentAnswerAudioB64: req.currentAnswerAudioB64, grammar });
+      const run3 = validateSingleResponse(res3Raw, priorText, currentTranscript);
+      if (!run3.contradicts) {
+        console.warn(`checkContradiction(): Guard 4 failed — run 3 returned no contradiction`);
+        return { contradicts: false, priorClaim: null, currentClaim: null, confidence: "low" };
+      }
+
+      const run13PriorMatch = isNearMatch(run1.priorClaim, run3.priorClaim) || isNearMatch(run3.priorClaim, run1.priorClaim);
+      const run13CurrentMatch = isNearMatch(run1.currentClaim, run3.currentClaim) || isNearMatch(run3.currentClaim, run1.currentClaim);
+      if (!run13PriorMatch || !run13CurrentMatch) {
+        console.warn(`checkContradiction(): Guard 4 failed — run 1 & 3 claim mismatch ("${run1.priorClaim}" vs "${run3.priorClaim}")`);
+        return { contradicts: false, priorClaim: null, currentClaim: null, confidence: "low" };
+      }
+
+      // All 3 independent runs passed guards and reached consensus
+      return {
+        contradicts: true,
+        priorClaim: run1.priorClaim,
+        currentClaim: run1.currentClaim,
+        confidence: "high"
+      };
+
+    } catch (err) {
+      console.warn(`checkContradiction(): execution failed — ${err.message}`);
+    }
+
+    return { contradicts: false, priorClaim: null, currentClaim: null, confidence: "low" };
+  }
+
+  return { evaluate, followup, recommend, generateQuestions, checkContradiction };
 })();
 
 if (typeof window !== "undefined") window.LLM = LLM;

@@ -1,0 +1,24 @@
+# Grammar for LLM.checkContradiction() in src/llm.js — constrains llama-server's
+# /v1/chat/completions output to a single JSON object matching:
+# {"contradicts": boolean, "priorClaim": string|null, "currentClaim": string|null, "confidence": "high"|"low"}
+
+root ::= (
+  "{" ws
+  "\"contradicts\":" ws boolean "," ws
+  "\"priorClaim\":" ws nullable-string "," ws
+  "\"currentClaim\":" ws nullable-string "," ws
+  "\"confidence\":" ws confidence ws
+  "}"
+)
+
+boolean ::= "true" | "false"
+
+nullable-string ::= string | "null"
+
+confidence ::= "\"high\"" | "\"low\""
+
+string ::= "\"" char* "\""
+
+char ::= [^"\\\x7F\x00-\x1F] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
+
+ws ::= [ \t\n\r]*

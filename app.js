@@ -263,7 +263,84 @@ function applySystemTheme() {
   }
 }
 
-// Initialize State from Storage
+// --- Dynamic question generation helpers ---
+
+/**
+ * Read topics asked in recent sessions from localStorage.
+ * Returns an array of topic strings that should be excluded.
+ */
+function getExclusionTopics(roleId) {
+  try {
+    const raw = localStorage.getItem("gemma_v2_asked");
+    if (!raw) return [];
+    const record = JSON.parse(raw);
+    const roleTopics = record[roleId];
+    if (!roleTopics || typeof roleTopics !== "object") return [];
+    const now = Date.now();
+    const THREE_SESSIONS_MS = 72 * 60 * 60 * 1000; // 72h as a proxy for "last 3 sessions"
+    return Object.entries(roleTopics)
+      .filter(([, ts]) => now - ts < THREE_SESSIONS_MS)
+      .map(([topic]) => topic);
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Record topics asked in the current session.
+ */
+function recordAskedTopics(roleId, topics) {
+  try {
+    const raw = localStorage.getItem("gemma_v2_asked");
+    const record = raw ? JSON.parse(raw) : {};
+    if (!record[roleId]) record[roleId] = {};
+    const now = Date.now();
+    topics.forEach(t => { record[roleId][t] = now; });
+    // Prune stale entries to keep storage small
+    const cutoff = now - 14 * 24 * 60 * 60 * 1000;
+    for (const role in record) {
+      for (const topic in record[role]) {
+        if (record[role][topic] < cutoff) delete record[role][topic];
+      }
+    }
+    localStorage.setItem("gemma_v2_asked", JSON.stringify(record));
+  } catch (e) {
+    // Storage full or not available — non-critical
+  }
+}
+
+/**
+ * Pick up to 2 bank exemplars matching round type and level.
+ * Used for topic-seeded generation (no resume).
+ */
+function pickExemplars(roleId, level, roundType) {
+  const qs = getRoundQuestions(roleId, level, roundType);
+  if (!qs.length) return [];
+
+  const isBehavioral = roundType === "behavioral";
+  const matching = qs.filter(q => isBehavioral
+    ? (q.shape === "STAR" || q.category === "Behavioral")
+    : (q.shape === "Technical" || q.category === "Technical"));
+
+  const exemplars = (matching.length ? matching : qs).slice(0, 2);
+  return exemplars.map(q => {
+    const covers = [];
+    if (q.shape === "STAR") {
+      covers.push("Specific situation or project", "What they personally did", "Measurable outcome");
+    } else {
+      covers.push("Definition of the concept", "How it works in practice", "Trade-off or limitation");
+    }
+    const mistakes = q.shape === "STAR"
+      ? ["Describing team actions instead of their own", "No specific numbers or outcomes"]
+      : ["Only defining the term without depth", "No mention of real-world use or trade-offs"];
+    return {
+      question: q.text,
+      topic: q.topic || q.text.split(" ").slice(0, 3).join(" "),
+      whatAGoodAnswerCovers: covers,
+      commonMistakes: mistakes
+    };
+  });
+}
 function loadStateFromStorage() {
   const savedSettings = localStorage.getItem("gemma_v2_settings");
   const savedUser = localStorage.getItem("gemma_v2_user");
@@ -858,8 +935,17 @@ function viewSetupWizard() {
     roleId: "frontend",
     level: "easy",
     aiVoiceEnabled: APP_STATE.settings.aiVoiceEnabled !== false,
-    resumeUploaded: !!APP_STATE.user.resumeName,
-    fileName: APP_STATE.user.resumeName || ""
+    candidateContext: localStorage.getItem("gemma_v2_context") || ""
+  };
+
+  // Save context from textarea on every render step so it survives navigation.
+  window.saveSetupContext = () => {
+    const el = document.getElementById("setup-context-input");
+    if (el) { setupData.candidateContext = el.value; }
+  };
+  window.persistSetupContext = () => {
+    window.saveSetupContext();
+    localStorage.setItem("gemma_v2_context", setupData.candidateContext.trim());
   };
 
   view.innerHTML = `
@@ -886,14 +972,6 @@ function viewSetupWizard() {
   window.selectRoleCard = (id) => { setupData.roleId = id; renderStep(); };
   window.selectLevelCard = (lv) => { setupData.level = lv; renderStep(); };
   window.toggleSetupVoice = (el) => { setupData.aiVoiceEnabled = el.checked; APP_STATE.settings.aiVoiceEnabled = el.checked; saveStateToStorage(); };
-  window.triggerResumeUpload = () => document.getElementById("setup-resume-file").click();
-  window.handleResumeFile = (input) => {
-    if (input.files && input.files[0]) {
-      setupData.resumeUploaded = true; setupData.fileName = input.files[0].name;
-      showToast("Resume uploaded successfully!"); renderStep();
-    }
-  };
-  window.removeResume = (e) => { e.stopPropagation(); setupData.resumeUploaded = false; setupData.fileName = ""; renderStep(); };
 
   function progressDots() {
     return STEP_LABELS.map((lbl, i) => {
@@ -957,15 +1035,13 @@ function viewSetupWizard() {
   }
 
   function renderSettingsStep() {
-    const role = getRole(setupData.roleId);
+    const savedContext = localStorage.getItem("gemma_v2_context") || "";
     return `<h3 class="setup-step-title">4. Settings</h3>
       <div class="form-group" style="margin-top:16px;"><label class="form-label">Voice</label>
         <label class="checkbox-container" style="margin-top:8px;"><input type="checkbox" ${setupData.aiVoiceEnabled ? 'checked' : ''} onchange="toggleSetupVoice(this)"> Read questions aloud (AI voice)</label></div>
-      <div class="form-group" style="margin-top:16px;"><label class="form-label">Resume (optional)</label>
-        <div class="resume-upload-zone" onclick="triggerResumeUpload()"><i data-lucide="file-text"></i><h4>Click to upload resume</h4><p>Used for personalization.</p>
-          <input type="file" id="setup-resume-file" style="display:none;" onchange="handleResumeFile(this)"></div>
-        <div class="resume-file-info ${setupData.resumeUploaded ? '' : 'hidden'}"><i data-lucide="check-circle" style="color:var(--success);"></i> <span>${setupData.fileName}</span>
-          <button class="ghost-btn-sm" style="color:var(--error); margin-left:auto;" onclick="removeResume(event)">Remove</button></div></div>`;
+      <div class="form-group" style="margin-top:16px;"><label class="form-label">Resume or Job Description (optional)</label>
+        <textarea id="setup-context-input" class="answer-textarea" placeholder="Paste your resume text or a job description here. Questions will be personalised from this context.&#10;&#10;Skippable — if left blank, questions are generated from topic taxonomies." style="min-height:120px; font-size:13px;">${savedContext}</textarea>
+        <span style="font-size:12px; color:var(--text-muted); display:block; margin-top:4px;">Used to personalise questions per session.</span></div>`;
   }
 
   function renderConfirmStep() {
@@ -974,12 +1050,14 @@ function viewSetupWizard() {
     const rounds = setupData.mode === "full" ? ["behavioral", "systemDesign"] : [setupData.quickRound];
     const roundNames = rounds.map(rt => rt === 'behavioral' ? `Behavioral (${r.behavioralCount} Qs)` : `Technical (${r.technicalCount || r.systemDesignCount} Qs)`).join(" → ");
     const row = (k, v) => `<div class="confirm-row"><span>${k}</span><strong>${v}</strong></div>`;
+    const hasContext = setupData.candidateContext && setupData.candidateContext.trim().length > 0;
     return `<h3 class="setup-step-title">5. Confirm</h3>
       ${row("Mode", setupData.mode === 'full' ? 'Full Interview' : 'Quick Practice')}
       ${row("Role", role.name)}
       ${row("Level", `${r.label} — ${r.tag}`)}
       ${row("Rounds", roundNames)}
       ${row("AI Voice", setupData.aiVoiceEnabled ? 'Enabled' : 'Disabled')}
+      ${row("Questions", hasContext ? "Personalised from your resume" : "Topic-seeded from role taxonomy")}
       <div class="badge badge-info" style="margin-top:20px; display:flex; gap:8px; padding:12px 16px;"><i data-lucide="info" style="width:16px;height:16px;"></i><span>Timers scale with level — ${Math.round(r.behavioralTimer / 60)} min for the Behavioral round.</span></div>`;
   }
 
@@ -998,7 +1076,7 @@ function viewSetupWizard() {
 
   nextBtn.addEventListener("click", () => {
     if (currentStep < 5) { currentStep++; renderStep(); }
-    else startInterviewSession(setupData);
+    else { persistSetupContext(); startInterviewSession(setupData); }
   });
   backBtn.addEventListener("click", () => { if (currentStep > 1) { currentStep--; renderStep(); } });
 
@@ -1048,7 +1126,7 @@ async function startInterviewSession(setup) {
   setTimeout(() => beginRound(0), 600);
 }
 
-function beginRound(i) {
+async function beginRound(i) {
   const s = APP_STATE.currentInterview;
   if (!s) return;
   const type = s.rounds[i];
@@ -1057,18 +1135,83 @@ function beginRound(i) {
   const count = type === "behavioral" ? rules.behavioralCount : rules.systemDesignCount;
   const catLabel = roundCategoryLabel(type, role);
 
-  let qs = getRoundQuestions(s.roleId, s.level, type).slice(0, count);
-  qs = qs.map(q => ({ ...q, category: q.category || catLabel }));
+  const candidateContext = localStorage.getItem("gemma_v2_context") || "";
+  const topicTaxonomy = LEVEL_TOPICS[s.roleId]
+    ? (LEVEL_TOPICS[s.roleId][s.level] || LEVEL_TOPICS[s.roleId].easy)
+    : "";
+  const excludeTopics = getExclusionTopics(s.roleId);
+  const exemplars = pickExemplars(s.roleId, s.level, type);
 
-  // The question bank ships empty — every array in question-bank.js is a stub.
-  // Bail out loudly rather than rendering a round with no questions.
+  // Try model generation first, fall back to bank questions for failed slots.
+  let generatedQs = [];
+  try {
+    generatedQs = await LLM.generateQuestions({
+      role: role.name,
+      level: s.level,
+      round: type,
+      candidateContext: candidateContext || null,
+      excludeTopics,
+      exemplars,
+      topicTaxonomy,
+      count
+    });
+  } catch (e) {
+    console.warn("beginRound(): generateQuestions threw", e);
+    generatedQs = null;
+  }
+
+  const bankQs = getRoundQuestions(s.roleId, s.level, type);
+  let qs = [];
+  let askedTopics = [];
+
+  if (generatedQs && generatedQs.length > 0) {
+    for (let j = 0; j < count; j++) {
+      const gq = generatedQs[j];
+      if (gq) {
+        askedTopics.push(gq.topic);
+        qs.push({
+          id: `gen_${j}`,
+          text: gq.question,
+          category: catLabel,
+          hint: (gq.whatAGoodAnswerCovers || []).join("; ") || "Structure your answer to cover the key points.",
+          whatAGoodAnswerCovers: gq.whatAGoodAnswerCovers || [],
+          modelAnswer: ""
+        });
+      } else if (bankQs.length > j) {
+        // Fall back to bank for this slot
+        const bq = bankQs[j] || bankQs[bankQs.length - 1];
+        qs.push({ ...bq, category: bq.category || catLabel });
+      }
+    }
+    // Fill remaining slots from bank
+    if (qs.length < count) {
+      const usedTexts = new Set(qs.map(q => q.text));
+      for (const bq of bankQs) {
+        if (qs.length >= count) break;
+        if (!usedTexts.has(bq.text)) {
+          qs.push({ ...bq, category: bq.category || catLabel });
+        }
+      }
+    }
+  }
+
   if (qs.length === 0) {
-    showToast(`No ${catLabel} questions authored for ${role.name} / ${s.level} yet.`, "error");
+    // Total failure — fall back entirely to bank
+    qs = bankQs.slice(0, count).map(q => ({ ...q, category: q.category || catLabel }));
+  }
+
+  if (qs.length === 0) {
+    showToast(`No ${catLabel} questions available for ${role.name} / ${s.level}.`, "error");
     APP_STATE.currentInterview = null;
     window.location.hash = "#/dashboard";
     return;
   }
 
+  recordAskedTopics(s.roleId, askedTopics);
+
+  // Race-critical: probeUsed and roundProbeCount must be reset AFTER the
+  // await (generation above). If reset before, an event handler firing during
+  // the await could leak the probe cap between sessions.
   s.currentRoundIndex = i;
   s.roundType = type;
   s.roundCategoryLabel = catLabel;
@@ -1079,9 +1222,6 @@ function beginRound(i) {
   s.probedSlot = null;
   s.lastBaseAnswerText = "";
   s.probeUsed = false;
-  // Round-wide cap: at most 1 probe follow-up per round (Behavioral and
-  // Technical each get their own counter simply by virtue of this
-  // resetting every time a round begins).
   s.roundProbeCount = 0;
   s.timeRemaining = type === "behavioral" ? rules.behavioralTimer : rules.systemDesignTimer;
   window.location.hash = "#/round";
@@ -1129,6 +1269,7 @@ async function gradeAnswers(answers, roundType) {
     try {
       const g = await LLM.evaluate({
         question: ans.question, userAnswer: ans.userAnswer, modelAnswer: ans.modelAnswer,
+        whatAGoodAnswerCovers: ans.whatAGoodAnswerCovers,
         category: (roundType === "technical" || roundType === "systemDesign") ? "Technical" : "Behavioral"
       });
       out.push({ question: ans.question, userAnswer: ans.userAnswer, score: g.score,
@@ -1647,7 +1788,12 @@ async function evaluateAndMaybeProbe(userAnswer) {
   const answerAudio = LocalAudio.getLastAnswerAudio();
   try {
     graded = await LLM.evaluate({
-      question: q.text, userAnswer, modelAnswer: q.modelAnswer, category, probeUsed: probeUsedForCall,
+      question: q.text,
+      userAnswer,
+      modelAnswer: q.modelAnswer,
+      whatAGoodAnswerCovers: q.whatAGoodAnswerCovers,
+      category,
+      probeUsed: probeUsedForCall,
       audioB64: answerAudio?.wavB64
     });
   } catch (err) {
@@ -1816,7 +1962,8 @@ function saveAnswer(text) {
     question: q.text,
     userAnswer: text,
     category: q.category,
-    modelAnswer: q.modelAnswer
+    modelAnswer: q.modelAnswer,
+    whatAGoodAnswerCovers: q.whatAGoodAnswerCovers
   });
 }
 

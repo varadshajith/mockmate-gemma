@@ -18,7 +18,7 @@ You serve the directory over HTTP and open it.
 | `index.html` | App shell — sidebar, header, view mount, modals, toasts |
 | `app.js` | SPA router and every view: landing, dashboard, setup, interview, results, history, analytics |
 | `styles.css` | The whole design system — tokens, layout, components, dark theme |
-| `question-bank.js` | Role metadata, level rules, and the interview questions |
+| `data/interview_questions.json` | Role metadata, level rules, and the interview questions |
 | `src/llm.js` | The **only** place the UI talks to a language model. Speaks to `llama-server` on localhost |
 | `src/audio.js` | The **only** place the UI does speech-to-text or text-to-speech. Speaks to the local audio sidecar |
 | `sidecar/` | Local Python process: captures the mic, detects end-of-turn, transcribes via `llama-server`. Binds `127.0.0.1` only |

@@ -100,7 +100,7 @@ let APP_STATE = createFreshState();
 
 // ==========================================
 // Question Bank Data & Lookup Engine
-// (Directly fetched from interview_questions.json)
+// (Directly fetched from data/interview_questions.json)
 // ==========================================
 const ROLES = [
   { id: "frontend",       name: "Frontend Developer",     icon: "code-2",      domain: "Web",         authored: true, fallback: "frontend" },
@@ -528,7 +528,7 @@ function viewLanding() {
         <div class="hero-illustration">
           <div class="illustration-card" style="width: 480px; overflow: visible; position: relative;">
             <div style="height: 280px; display: flex; align-items: center; justify-content: center; position: relative; border-radius: inherit; overflow: hidden; background-color: var(--surface);">
-              <img src="ai-interviewer.png?v=125" alt="AI Interviewer" style="width: 100%; height: 100%; object-fit: cover;">
+              <img src="assets/images/ai-interviewer.png?v=125" alt="AI Interviewer" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
             <div class="floating-feedback-card">
               <div class="feedback-icon-sparkle"><i data-lucide="sparkles"></i></div>
@@ -3183,14 +3183,14 @@ window.replayQuestionAudio = function() {
   }
 };
 
-// Dynamic loading of interview_questions.json to populate local QUESTION_BANK
+// Dynamic loading of data/interview_questions.json to populate local QUESTION_BANK
 async function loadExternalQuestions() {
   try {
-    const response = await fetch("interview_questions.json");
-    if (!response.ok) throw new Error("Failed to load interview_questions.json");
+    const response = await fetch("data/interview_questions.json");
+    if (!response.ok) throw new Error("Failed to load data/interview_questions.json");
     const data = await response.json();
     populateQuestionBank(data);
-    console.log("Successfully loaded questions directly from interview_questions.json");
+    console.log("Successfully loaded questions directly from data/interview_questions.json");
   } catch (err) {
     console.error("Failed to fetch interview questions:", err);
   }

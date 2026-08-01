@@ -383,7 +383,7 @@ const LLM = (() => {
       score: parsed.score,
       strengths: withPlaceholder(parsed.strengths, NO_STRENGTHS_PLACEHOLDER),
       improvements: withPlaceholder(parsed.improvements, NO_IMPROVEMENTS_PLACEHOLDER),
-      // The authored reference answer from question-bank.js is the trustworthy
+      // The authored reference answer from data/interview_questions.json is the trustworthy
       // one; the model's generated version is only a fallback when a question
       // ships without one.
       modelAnswer: req.modelAnswer || parsed.modelAnswer || "",

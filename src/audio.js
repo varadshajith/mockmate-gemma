@@ -20,6 +20,7 @@ const LocalAudio = (() => {
   let onPartialTranscript = null;
   let onEvent = null;
   let transcriptChunks = new Map();
+  let lastAnswerAudio = null;
   let speaking = false;
   let speakingSocket = null;
 
@@ -77,6 +78,7 @@ const LocalAudio = (() => {
     onEvent = eventCallback || null;
     onPartialTranscript = partialTranscriptCallback || null;
     transcriptChunks = new Map();
+    lastAnswerAudio = null;
 
     const ws = new WebSocket(SIDECAR_URL);
     socket = ws;
@@ -119,6 +121,15 @@ const LocalAudio = (() => {
         if (onPartialTranscript) {
           onPartialTranscript({ finalized: joinedTranscript(), committed: "", tentative: "" });
         }
+        return;
+      }
+
+      if (event.type === "answer_audio") {
+        if (!Number.isInteger(event.seq) || typeof event.wav_b64 !== "string" || !Number.isFinite(event.duration_ms)) {
+          emitEvent({ type: "error", code: "bad_message", message: "Invalid answer audio from local audio sidecar." });
+          return;
+        }
+        lastAnswerAudio = { seq: event.seq, wavB64: event.wav_b64, durationMs: event.duration_ms };
         return;
       }
 
@@ -215,6 +226,10 @@ const LocalAudio = (() => {
     return state === "connecting" || state === "listening";
   }
 
+  function getLastAnswerAudio() {
+    return lastAnswerAudio;
+  }
+
   /**
    * Read text aloud.
    * @param {string} text
@@ -274,7 +289,7 @@ const LocalAudio = (() => {
     return speaking;
   }
 
-  return { startListening, stopListening, isListening, speak, stopSpeaking, isSpeaking };
+  return { startListening, stopListening, isListening, getLastAnswerAudio, speak, stopSpeaking, isSpeaking };
 })();
 
 if (typeof window !== "undefined") window.LocalAudio = LocalAudio;

@@ -14,6 +14,7 @@ const LLM = (() => {
   const EVALUATE_GRAMMAR_PATH = "grammars/evaluate.gbnf";
   const FOLLOWUP_GRAMMAR_PATH = "grammars/followup.gbnf";
   const RECOMMEND_GRAMMAR_PATH = "grammars/recommend.gbnf";
+  const GENERATE_QUESTION_GRAMMAR_PATH = "grammars/generate_question.gbnf";
 
   // Generous on purpose. A warm request is ~2.3s, but the first call after
   // llama-server starts also pays for model warmup, and a tight timeout
@@ -68,6 +69,40 @@ const LLM = (() => {
   }
 
   /**
+   * POST to llama-server's OpenAI-compatible chat endpoint. This is used only
+   * when evaluate() is given local WAV audio; every other text-model request
+   * remains on /completion.
+   */
+  async function postChatCompletion(fnName, body) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let res;
+    try {
+      res = await fetch(`${LLAMA_SERVER_URL}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        throw new Error(
+          `${fnName}(): llama-server did not respond within ${REQUEST_TIMEOUT_MS}ms — request timed out.`
+        );
+      }
+      throw new Error(`${fnName}(): could not reach llama-server at ${LLAMA_SERVER_URL} — ${err.message}`);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!res.ok) {
+      throw new Error(`${fnName}(): llama-server /v1/chat/completions failed: ${res.status} ${res.statusText}`);
+    }
+    return res.json();
+  }
+
+  /**
    * Pull the generated text out of a llama-server response and JSON.parse it.
    * Both steps can fail on a well-formed HTTP 200 (unexpected envelope shape,
    * or output truncated at the n_predict ceiling mid-object), so both are
@@ -84,6 +119,27 @@ const LLM = (() => {
     } catch (err) {
       throw new Error(
         `${fnName}(): could not parse model output as JSON (${err.message}) — raw response: ${excerpt(data.content)}`
+      );
+    }
+  }
+
+  function parseChatCompletionContent(fnName, data) {
+    const choice = data?.choices?.[0];
+    if (!choice || typeof choice.message?.content !== "string") {
+      throw new Error(
+        `${fnName}(): llama-server response had no choices[0].message.content string — got ${excerpt(JSON.stringify(data))}`
+      );
+    }
+    if (choice.finish_reason !== "stop") {
+      throw new Error(
+        `${fnName}(): llama-server chat response finished as "${choice.finish_reason}" instead of "stop" — refusing partial grading output.`
+      );
+    }
+    try {
+      return JSON.parse(choice.message.content);
+    } catch (err) {
+      throw new Error(
+        `${fnName}(): could not parse model output as JSON (${err.message}) — raw response: ${excerpt(choice.message.content)}`
       );
     }
   }
@@ -135,6 +191,17 @@ const LLM = (() => {
       });
     }
     return recommendGrammarPromise;
+  }
+
+  let generateQuestionGrammarPromise = null;
+  function loadGenerateQuestionGrammar() {
+    if (!generateQuestionGrammarPromise) {
+      generateQuestionGrammarPromise = fetch(GENERATE_QUESTION_GRAMMAR_PATH).then((res) => {
+        if (!res.ok) throw new Error(`Failed to load ${GENERATE_QUESTION_GRAMMAR_PATH}: ${res.status}`);
+        return res.text();
+      });
+    }
+    return generateQuestionGrammarPromise;
   }
 
   // Pure arithmetic on the score + probe state — computed here rather than
@@ -193,6 +260,8 @@ const LLM = (() => {
       `Question: ${req.question}`,
       `Reference answer: ${req.modelAnswer || "(none provided)"}`,
       `Candidate's answer: ${req.userAnswer}`,
+      "The complete answer is the transcript above.",
+      "An audio clip may also be attached. It is the closing portion of this answer; listen to it for what the transcript cannot carry. Do not treat it as the complete answer.",
       "",
       isTechnical ? TECHNICAL_RUBRIC : BEHAVIORAL_RUBRIC,
       "",
@@ -215,23 +284,53 @@ const LLM = (() => {
 
   /**
    * Score one answer.
-   * @param {{question:string, userAnswer:string, modelAnswer:string, category:string, probeUsed?:boolean}} req
-   *        category is "Behavioral" or "Technical". probeUsed indicates whether a
+   * @param {{question:string, userAnswer:string, modelAnswer:string, category:string, probeUsed?:boolean, audioB64?:string}} req
+   *        category is "Behavioral", "Technical", or "System Design". probeUsed indicates whether a
    *        clarifying probe has already been used on the current topic (defaults to false).
-   * @returns {Promise<{score:number, strengths:string[], improvements:string[], modelAnswer:string, complexity:string|null, feedback:string, levelSignal:("step_up"|"stay"|"probe"|"step_down")}>}
+   * @returns {Promise<{score:number, strengths:string[], improvements:string[], modelAnswer:string, complexity:string|null, feedback:string, levelSignal:("step_up"|"stay"|"probe"|"step_down"), gradedFrom:("text"|"audio+text")}>}
    */
   async function evaluate(req) {
     const grammar = await loadEvaluateGrammar();
     const prompt = buildEvaluatePrompt(req);
+    let parsed;
+    let gradedFrom = "text";
 
-    const data = await postCompletion("evaluate", {
-      prompt,
-      grammar,
-      temperature: 0.2,
-      n_predict: 700,
-      stream: false
-    });
-    const parsed = parseCompletionContent("evaluate", data);
+    if (typeof req.audioB64 === "string" && req.audioB64.trim()) {
+      try {
+        const data = await postChatCompletion("evaluate", {
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "input_audio", input_audio: { data: req.audioB64, format: "wav" } }
+            ]
+          }],
+          // Same grammar source and same prompt as the text-only path.
+          grammar,
+          temperature: 0.2,
+          max_tokens: 700,
+          stream: false,
+          // Required: without this llama-server may spend its completion
+          // budget on reasoning and return no usable JSON.
+          chat_template_kwargs: { enable_thinking: false }
+        });
+        parsed = parseChatCompletionContent("evaluate", data);
+        gradedFrom = "audio+text";
+      } catch (audioError) {
+        console.warn(`evaluate(): audio grading failed; falling back to text-only grading — ${audioError.message}`);
+      }
+    }
+
+    if (!parsed) {
+      const data = await postCompletion("evaluate", {
+        prompt,
+        grammar,
+        temperature: 0.2,
+        n_predict: 700,
+        stream: false
+      });
+      parsed = parseCompletionContent("evaluate", data);
+    }
 
     if (typeof parsed.score !== "number") {
       throw new Error(`evaluate(): model returned non-numeric score "${parsed.score}"`);
@@ -258,9 +357,10 @@ const LLM = (() => {
       // one; the model's generated version is only a fallback when a question
       // ships without one.
       modelAnswer: req.modelAnswer || parsed.modelAnswer || "",
-      complexity: isSystemDesign ? (parsed.complexity || null) : null,
+      complexity: req.category === "System Design" ? (parsed.complexity || null) : null,
       feedback: parsed.feedback || "",
-      levelSignal
+      levelSignal,
+      gradedFrom
     };
   }
 
@@ -394,8 +494,177 @@ const LLM = (() => {
     throw new Error(`recommend(): model returned placeholder text on all ${MAX_ATTEMPTS} attempts`);
   }
 
-  return { evaluate, followup, recommend };
+  // --- Dynamic question generation ---
+
+  // Quality guard: reject malformed generated questions. Each rejection is
+  // logged with the reason so patterns are visible during testing.
+  function isMalformedQuestion(q) {
+    if (!q || typeof q !== "object") return "not an object";
+    const text = (q.question || "").trim();
+    if (text.length === 0) return "empty question text";
+    const wordCount = text.split(/\s+/).length;
+    if (wordCount < 8) return `question too short (${wordCount} words): "${text}"`;
+    if (wordCount > 60) return `question too long (${wordCount} words): "${text}"`;
+    if (/\[topic\]|\[your\s+project\]|your\s+project|\.\.\./i.test(text)) return `placeholder in question: "${text}"`;
+    if (!Array.isArray(q.whatAGoodAnswerCovers) || q.whatAGoodAnswerCovers.length === 0) return "empty whatAGoodAnswerCovers";
+    return null;
+  }
+
+  function buildGenerateQuestionsPrompt(req) {
+    const roundLabel = req.round === "behavioral" ? "Behavioral (STAR)" : "Technical";
+    const contextLine = req.candidateContext
+      ? `Candidate context (resume or job description):\n${req.candidateContext}`
+      : `No candidate context provided. Generate questions grounded in the topic taxonomy below.`;
+
+    const excludeLine = (req.excludeTopics && req.excludeTopics.length)
+      ? `Topics already used recently (do NOT repeat these): ${req.excludeTopics.join(", ")}`
+      : "No topics are excluded.";
+
+    const exemplarLines = (req.exemplars || []).map((ex, i) =>
+      `Example ${i + 1}:\n  question: "${ex.question}"\n  topic: "${ex.topic}"\n  whatAGoodAnswerCovers: ${JSON.stringify(ex.whatAGoodAnswerCovers)}\n  commonMistakes: ${JSON.stringify(ex.commonMistakes)}`
+    ).join("\n\n");
+
+    return [
+      "You are an experienced interviewer generating mock interview questions for a candidate.",
+      "",
+      `Role: ${req.role}`,
+      `Level: ${req.level}`,
+      `Round: ${roundLabel}`,
+      `Generate exactly ${req.count} question(s) for this round.`,
+      "",
+      contextLine,
+      "",
+      `Topic taxonomy for this role/level (stay on-domain): ${req.topicTaxonomy || "(not provided)"}`,
+      "",
+      excludeLine,
+      "",
+      "Each question must be:",
+      "- A real interview question, 8-60 words, no placeholders like [topic] or 'your project'",
+      "- On a distinct topic from the taxonomy (or from the candidate context if provided)",
+      "- Calibrated to the level: easy = fundamentals, medium = applied/intermediate, advanced = system-level/senior",
+      "",
+      "For each question, provide:",
+      '- "question": the question text',
+      '- "topic": a short topic label (2-4 words) for the exclusion list',
+      '- "whatAGoodAnswerCovers": 3-5 things a strong answer should address',
+      '- "commonMistakes": 2-3 common mistakes weak answers make',
+      "",
+      "Few-shot examples (match the shape and difficulty calibration):",
+      exemplarLines || "(no examples provided)",
+      "",
+      "Write out every field in full. Never use \"...\" or any other placeholder text.",
+      "",
+      "Respond with a JSON array matching the schema exactly, no extra text."
+    ].join("\n");
+  }
+
+  /**
+   * Generate interview questions grounded in the candidate's resume or a job
+   * description, with the grading anchor generated alongside.
+   * @param {{role:string, level:string, round:string, candidateContext?:string, excludeTopics?:string[], exemplars?:object[], topicTaxonomy?:string, count:number}} req
+   *        round is "behavioral" or "technical". candidateContext is resume/JD text (optional).
+   *        exemplars are few-shot bank questions matching the round and level.
+   * @returns {Promise<Array<{question:string, topic:string, whatAGoodAnswerCovers:string[], commonMistakes:string[]}>|null>}
+   *         Returns null on total failure (caller falls back to bank questions).
+   */
+  async function generateQuestions(req) {
+    const grammar = await loadGenerateQuestionGrammar();
+    const prompt = buildGenerateQuestionsPrompt(req);
+    const MAX_ATTEMPTS = 2;
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      let parsed;
+      try {
+        const data = await postCompletion("generateQuestions", {
+          prompt,
+          grammar,
+          temperature: 0.5,
+          n_predict: 4000,
+          stream: false
+        });
+        parsed = parseCompletionContent("generateQuestions", data);
+      } catch (err) {
+        console.warn(`generateQuestions(): attempt ${attempt + 1} failed — ${err.message}`);
+        if (attempt === MAX_ATTEMPTS - 1) return null;
+        continue;
+      }
+
+      if (!Array.isArray(parsed)) {
+        console.warn(`generateQuestions(): attempt ${attempt + 1} returned non-array`);
+        if (attempt === MAX_ATTEMPTS - 1) return null;
+        continue;
+      }
+
+      const malformed = parsed.map(q => isMalformedQuestion(q)).filter(Boolean);
+      if (malformed.length === 0) {
+        return parsed;
+      }
+
+      console.warn(`generateQuestions(): attempt ${attempt + 1} had ${malformed.length} malformed question(s):`);
+      malformed.forEach(reason => console.warn(`  - ${reason}`));
+
+      if (attempt === MAX_ATTEMPTS - 1) {
+        // Return only the valid ones, null for the failed slots so the caller
+        // knows which slots need bank fallback.
+        return parsed.map(q => isMalformedQuestion(q) ? null : q);
+      }
+    }
+
+    return null;
+  }
+
+  return { evaluate, followup, recommend, generateQuestions };
 })();
 
 if (typeof window !== "undefined") window.LLM = LLM;
 if (typeof module !== "undefined" && module.exports) module.exports = LLM;
+
+// --- Phase 1 test harness (dev tool, not production code) ---
+// Run from browser console: await testGenerateQuestions()
+if (typeof window !== "undefined") {
+  window.testGenerateQuestions = async function() {
+    const WITH_RESUME = "3 years as a backend developer, built REST APIs in Node.js and Python, experienced with PostgreSQL, Redis, Docker. Led migration from monolith to microservices.";
+    const EXEMPLARS = [
+      {
+        question: "What's the difference between SQL and NoSQL databases?",
+        topic: "SQL vs NoSQL",
+        whatAGoodAnswerCovers: ["Schema flexibility tradeoffs", "When to choose each", "Real-world example of using one"],
+        commonMistakes: ["Saying NoSQL is just 'not structured'", "No example from real use"]
+      },
+      {
+        question: "What does an index do in a database, and why can't you just index everything?",
+        topic: "Database indexing",
+        whatAGoodAnswerCovers: ["What an index is under the hood", "Write-time cost of indexes", "Real example of over-indexing"],
+        commonMistakes: ["Only saying 'it makes reads faster'", "No mention of write penalty"]
+      }
+    ];
+    const TAXONOMY = "HTTP methods, REST, JSON, status codes, middleware, JWT/OAuth, SQL joins, indexing, microservices, queues, CQRS, rate limiting";
+
+    console.log("=== WITH RESUME (5 questions) ===");
+    const withResume = await LLM.generateQuestions({
+      role: "Backend Developer", level: "easy", round: "technical",
+      candidateContext: WITH_RESUME, excludeTopics: [], exemplars: EXEMPLARS,
+      topicTaxonomy: TAXONOMY, count: 5
+    });
+    console.table(withResume);
+
+    console.log("=== WITHOUT RESUME (topic-seeded, 5 questions) ===");
+    const noResume = await LLM.generateQuestions({
+      role: "Backend Developer", level: "easy", round: "technical",
+      candidateContext: null, excludeTopics: [], exemplars: EXEMPLARS,
+      topicTaxonomy: TAXONOMY, count: 5
+    });
+    console.table(noResume);
+
+    console.log("=== LATENCY (full advanced round, 2 questions) ===");
+    const start = performance.now();
+    await LLM.generateQuestions({
+      role: "Backend Developer", level: "advanced", round: "technical",
+      candidateContext: WITH_RESUME, excludeTopics: [], exemplars: EXEMPLARS,
+      topicTaxonomy: "Microservices, queues, CQRS, rate limiting", count: 2
+    });
+    console.log(`Full round generation: ${(performance.now() - start).toFixed(0)}ms`);
+
+    return { withResume, noResume };
+  };
+}

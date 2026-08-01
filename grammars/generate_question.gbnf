@@ -1,0 +1,30 @@
+# Grammar for LLM.generateQuestions() in src/llm.js — constrains
+# llama-server's /completion output to a JSON array of question objects.
+# Each question carries its own grading anchor (whatAGoodAnswerCovers)
+# so evaluate() can grade against the anchor instead of a reference answer.
+
+# Newlines are only insignificant whitespace inside a parenthesized group in
+# this grammar dialect, so the whole body is wrapped in one outer group.
+root ::= (
+  "[" ws question (ws "," ws question)* ws "]"
+)
+
+question ::= (
+  "{" ws
+  "\"question\":" ws string "," ws
+  "\"topic\":" ws string "," ws
+  "\"whatAGoodAnswerCovers\":" ws string-array "," ws
+  "\"commonMistakes\":" ws string-array ws
+  "}"
+)
+
+# At least one item is required — an empty grading anchor would leave
+# evaluate() with nothing to grade against, which is the same problem
+# as a fabricated score (Rule 1).
+string-array ::= "[" ws string (ws "," ws string)* ws "]"
+
+string ::= "\"" char* "\""
+
+char ::= [^"\\\x7F\x00-\x1F] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
+
+ws ::= [ \t\n\r]*

@@ -1449,9 +1449,9 @@ function getSlotStatus(text, filledKeywords, vagueKeywords) {
     if (t.includes(kw)) vagueCount++;
   }
 
-  if (filledCount >= 2 || (filledCount >= 1 && vagueCount >= 2)) {
+  if (filledCount >= 1 || vagueCount >= 2) {
     return "filled";
-  } else if (filledCount === 1 || vagueCount >= 1) {
+  } else if (vagueCount === 1) {
     return "vague";
   } else {
     return "missing";
@@ -1714,16 +1714,19 @@ window.submitInterviewAnswer = async function() {
       // Determine the probed slot
       const isSD = isTechnicalQuestion(currentQ, session.roundType);
       const slots = isSD ? SLOT_DEFINITIONS.systemDesign : SLOT_DEFINITIONS.behavioral;
-      session.probedSlot = null;
-      session.lastBaseAnswerText = ans;
+      let missingSlot = null;
+      let vagueSlot = null;
 
       for (const slot of slots) {
         const status = getSlotStatus(ans, slot.filled, slot.vague);
-        if (status === "missing" || status === "vague") {
-          session.probedSlot = slot.id;
-          break;
+        if (status === "missing" && !missingSlot) {
+          missingSlot = slot.id;
+        } else if (status === "vague" && !vagueSlot) {
+          vagueSlot = slot.id;
         }
       }
+      session.probedSlot = missingSlot || vagueSlot;
+      session.lastBaseAnswerText = ans;
 
       // Force follow-up injection if we found an incomplete slot
       if (session.probedSlot) {
@@ -1760,6 +1763,43 @@ window.submitInterviewAnswer = async function() {
       session.lastBaseAnswerText = "";
     }
     
+    // Live Contradiction Detection: multimodal check (Prior Text + Current Audio WAV)
+    if (session && session.answers && session.answers.length >= 2) {
+      const answerAudio = typeof LocalAudio !== "undefined" && LocalAudio.getLastAnswerAudio ? LocalAudio.getLastAnswerAudio() : null;
+      const priorAnswers = session.answers.slice(0, -1).map(a => a.userAnswer).filter(Boolean);
+
+      if (priorAnswers.length > 0 && answerAudio?.wavB64) {
+        try {
+          const contradictionResult = await LLM.checkContradiction({
+            priorAnswers,
+            currentAnswerAudioB64: answerAudio.wavB64,
+            currentTranscript: answerText
+          });
+
+          if (contradictionResult && contradictionResult.contradicts) {
+            const currentAnswerObj = session.answers[session.answers.length - 1];
+            currentAnswerObj.contradiction = contradictionResult;
+
+            showToast("Contradiction detected! Probing inconsistency...", "warning");
+
+            const contradictionProbeText = `Earlier you mentioned: "${contradictionResult.priorClaim}", but in your spoken response you stated: "${contradictionResult.currentClaim}". Can you clarify this inconsistency?`;
+            
+            const contradictionQ = {
+              id: "contradiction-probe",
+              text: contradictionProbeText,
+              category: "Contradiction Probe",
+              hint: "Reconcile the difference between your previous statement and current answer.",
+              modelAnswer: "Clear reconciliation explaining how both statements fit together or correcting the mistake."
+            };
+
+            session.questions.splice(session.currentQuestionIndex + 1, 0, contradictionQ);
+          }
+        } catch (cErr) {
+          console.warn("[mockmate] Contradiction check skipped/failed:", cErr);
+        }
+      }
+    }
+
     nextInterviewStep();
   } catch (err) {
     console.error("[mockmate] submitInterviewAnswer error:", err);

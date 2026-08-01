@@ -28,28 +28,30 @@ You serve the directory over HTTP and open it.
 
 ### Who is allowed to call the model
 
-There are **exactly two** callers of `llama-server`, and they use different
-endpoints for different reasons:
+Model-server callers — exhaustive list. No other file may call any inference
+server directly.
 
-| Caller | Endpoint | What for |
-|---|---|---|
-| `src/llm.js` | `POST /completion` | Grammar-constrained text — scoring, follow-ups, coaching. Sends a GBNF grammar on every request |
-| `sidecar/` | `POST /v1/chat/completions` | Audio transcription — sends base64 wav in an `input_audio` content block |
+1. src/llm.js  ->  llama-server, 127.0.0.1:8080
+   Endpoints: /completion (text-only, raw GBNF grammar)
+              /v1/chat/completions (multimodal, top-level grammar field)
+   Purpose: grading, follow-ups, recommendations, question generation,
+            contradiction checking, slot checking.
+   May receive base64 audio as an input to grading. May NOT capture,
+   resample, or otherwise process audio.
 
-**No third caller may be added.** If new functionality needs the model, it goes
-through one of these two or it does not happen.
+2. sidecar/  ->  llama-server, 127.0.0.1:8080
+   Endpoint: /v1/chat/completions
+   Purpose: transcription only. Never grades, never generates interview
+            content.
 
-**The browser never calls `llama-server` directly for audio.** The page cannot
-open a microphone through `pw-record`, so all capture and transcription happens
-in the sidecar; `src/audio.js` talks only to the sidecar over a local
-WebSocket, and the sidecar talks to `llama-server`.
+3. src/memory.js  ->  embedding server, 127.0.0.1:8081
+   Endpoint: /embedding
+   Purpose: retrieval only. This server never generates text.
 
-Two front-end boundaries hold regardless:
-
-- **`src/llm.js` is the text-model boundary.** Every scoring, follow-up, and
-  coaching request from the UI goes through it.
-- **`src/audio.js` is the audio boundary.** Every microphone read and every
-  spoken output goes through it. No other file may touch audio.
+Audio capture, resampling, chunking, turn detection, and TTS remain solely in
+sidecar/ and src/audio.js. "Audio grading" means src/llm.js sends
+already-captured, already-resampled base64 WAV as one input among several to
+llama-server. It does not mean src/llm.js touches the audio pipeline.
 
 There is **no cloud backend, and none may be added.** No server-side API, no
 database, no auth service, no hosted inference. If a change seems to need one,

@@ -3,7 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const SERVER = "http://192.168.137.123:8080";
+const SERVER = process.env.LLAMA_SERVER_URL || "http://127.0.0.1:8080";
 const GRAMMAR = fs.readFileSync(path.join(__dirname, "..", "grammars", "generate_question.gbnf"), "utf8");
 
 const RESUME = "3 years as a backend developer, built REST APIs in Node.js and Python, experienced with PostgreSQL, Redis, Docker. Led migration from monolith to microservices.";

@@ -22,6 +22,17 @@ MAX_CHUNK_SECONDS = 30.0
 # Below this there is not enough audio for end-of-turn detection to mean much.
 MIN_CHUNK_SECONDS = 1.0
 
+# --- Rolling transcription -------------------------------------------------
+# Re-transcribe the growing uncommitted tail on this cadence. Repeating audio
+# is intentional: agreement between consecutive passes identifies stable text.
+TICK_SECONDS = 2.0
+# Keep rolling requests short enough that the local model remains responsive.
+MAX_WINDOW_SECONDS = 10.0
+# Retain this much already-committed audio at a trim boundary for context.
+COMMIT_SAFETY_MS = 300
+# Do not spend a request on a fragment shorter than this.
+MIN_WINDOW_SECONDS = 1.0
+
 # --- Level thresholds ------------------------------------------------------
 # These two are deliberately 5dB apart and the ordering is load-bearing.
 #

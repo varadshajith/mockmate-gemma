@@ -1125,6 +1125,9 @@ function viewInterview() {
             <div class="card answer-editor-card">
               <label class="form-label" for="interview-answer-input" style="padding:16px 16px 0;">Transcript</label>
               <textarea id="interview-answer-input" class="answer-textarea" placeholder="Your spoken answer appears here..."></textarea>
+              <div id="live-transcript-preview" class="live-transcript-preview hidden" aria-live="polite">
+                <span id="live-transcript-committed"></span><span id="live-transcript-tentative" class="live-transcript-tentative"></span>
+              </div>
               <div class="editor-footer">
                 <div style="display:flex; align-items:center; gap:16px;">
                   <button id="interview-mic-btn" class="mic-toggle-btn" onclick="toggleSpeechToText()">
@@ -2511,6 +2514,17 @@ window.toggleSpeechToText = function() {
     }
   }
 
+  function renderLiveTranscript({ committed, tentative }) {
+    const preview = document.getElementById("live-transcript-preview");
+    const committedEl = document.getElementById("live-transcript-committed");
+    const tentativeEl = document.getElementById("live-transcript-tentative");
+    if (!preview || !committedEl || !tentativeEl) return;
+
+    committedEl.textContent = committed;
+    tentativeEl.textContent = tentative ? `${committed ? " " : ""}${tentative}` : "";
+    preview.classList.toggle("hidden", !committed && !tentative);
+  }
+
   LocalAudio.startListening((transcript) => {
     textarea.value = originalText + transcript;
     const counter = document.getElementById("char-counter-text");
@@ -2531,7 +2545,7 @@ window.toggleSpeechToText = function() {
       showToast(event.message || "Local audio transcription failed.", "error");
     }
     resetVoiceButton();
-  });
+  }, renderLiveTranscript);
 };
 
 window.replayQuestionAudio = function() {

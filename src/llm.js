@@ -15,7 +15,6 @@ const LLM = (() => {
   const FOLLOWUP_GRAMMAR_PATH = "grammars/followup.gbnf";
   const RECOMMEND_GRAMMAR_PATH = "grammars/recommend.gbnf";
   const CONTRADICTION_GRAMMAR_PATH = "grammars/contradiction.gbnf";
-  const GENERATE_QUESTION_GRAMMAR_PATH = "grammars/generate_question.gbnf";
 
   // Generous on purpose. A warm request is ~2.3s, but the first call after
   // llama-server starts also pays for model warmup, and a tight timeout
@@ -194,17 +193,6 @@ const LLM = (() => {
     return recommendGrammarPromise;
   }
 
-  let generateQuestionGrammarPromise = null;
-  function loadGenerateQuestionGrammar() {
-    if (!generateQuestionGrammarPromise) {
-      generateQuestionGrammarPromise = fetch(GENERATE_QUESTION_GRAMMAR_PATH).then((res) => {
-        if (!res.ok) throw new Error(`Failed to load ${GENERATE_QUESTION_GRAMMAR_PATH}: ${res.status}`);
-        return res.text();
-      });
-    }
-    return generateQuestionGrammarPromise;
-  }
-
   // Pure arithmetic on the score + probe state — computed here rather than
   // trusted from the model's own levelSignal field, because in testing the
   // model didn't reliably apply the "probe already used" clause (it kept
@@ -254,12 +242,23 @@ const LLM = (() => {
   function buildEvaluatePrompt(req) {
     const isTechnical = req.category === "Technical" || req.category === "System Design";
     const probeUsed = req.probeUsed === true;
+
+    // When a generated question carries a grading anchor, grade against it
+    // instead of a reference answer. The anchor is a checklist of what a good
+    // answer should cover — the model checks each point.
+    const gradingAnchor = (req.whatAGoodAnswerCovers && req.whatAGoodAnswerCovers.length)
+      ? [
+          "What a good answer covers (grade against this checklist):",
+          req.whatAGoodAnswerCovers.map((item, i) => `${i + 1}. ${item}`).join("\n")
+        ].join("\n")
+      : `Reference answer: ${req.modelAnswer || "(none provided)"}`;
+
     return [
       "You are an interview coach grading a candidate's spoken interview answer.",
       "",
       `Category: ${req.category}`,
       `Question: ${req.question}`,
-      `Reference answer: ${req.modelAnswer || "(none provided)"}`,
+      gradingAnchor,
       `Candidate's answer: ${req.userAnswer}`,
       "The complete answer is the transcript above.",
       "An audio clip may also be attached. It is the closing portion of this answer; listen to it for what the transcript cannot carry. Do not treat it as the complete answer.",
@@ -285,9 +284,11 @@ const LLM = (() => {
 
   /**
    * Score one answer.
-   * @param {{question:string, userAnswer:string, modelAnswer:string, category:string, probeUsed?:boolean, audioB64?:string}} req
+   * @param {{question:string, userAnswer:string, modelAnswer:string, whatAGoodAnswerCovers?:string[], category:string, probeUsed?:boolean, audioB64?:string}} req
    *        category is "Behavioral", "Technical", or "System Design". probeUsed indicates whether a
    *        clarifying probe has already been used on the current topic (defaults to false).
+   *        whatAGoodAnswerCovers is an optional grading anchor from generated questions — when present,
+   *        the model grades against this checklist instead of a reference answer.
    * @returns {Promise<{score:number, strengths:string[], improvements:string[], modelAnswer:string, complexity:string|null, feedback:string, levelSignal:("step_up"|"stay"|"probe"|"step_down"), gradedFrom:("text"|"audio+text")}>}
    */
   async function evaluate(req) {
@@ -511,106 +512,175 @@ const LLM = (() => {
     return null;
   }
 
+  /**
+   * Mechanical guard: with a resume/JD present, at least minCount questions
+   * must contain at least one noun phrase from the candidate context.
+   * Returns the list of questions that fail the grounding check.
+   */
+  function checkResumeGrounding(questions, candidateContext, minCount) {
+    if (!candidateContext) return []; // no context = nothing to check
+
+    // Extract candidate-significant noun phrases: project names, tech stacks,
+    // system names, specific tools mentioned. These are 2+ word sequences that
+    // start with an uppercase letter (proper nouns) or are known tech terms.
+    const contextNouns = new Set();
+    const words = candidateContext.split(/\s+/);
+
+    // Collect 2-3 word sequences starting with uppercase (proper nouns)
+    for (let i = 0; i < words.length; i++) {
+      if (/^[A-Z]/.test(words[i]) && words[i].length > 1) {
+        // Single uppercase word
+        contextNouns.add(words[i].replace(/[.,;:]+$/, ""));
+        // Two-word sequences
+        if (i + 1 < words.length) {
+          contextNouns.add(words.slice(i, i + 2).join(" ").replace(/[.,;:]+$/, ""));
+        }
+        // Three-word sequences
+        if (i + 2 < words.length) {
+          contextNouns.add(words.slice(i, i + 3).join(" ").replace(/[.,;:]+$/, ""));
+        }
+      }
+    }
+
+    // Add common lowercase tech terms that are specific enough to be grounding
+    const lowerNouns = ["postgresql", "rabbitmq", "redis", "docker", "kubernetes",
+      "kong", "pgvector", "microservices", "razorpay", "rag", "mongodb", "kafka"];
+    lowerNouns.forEach(t => {
+      if (candidateContext.toLowerCase().includes(t)) contextNouns.add(t);
+    });
+
+    const ungrounded = [];
+    for (const q of questions) {
+      if (!q) continue;
+      const qLower = (q.question || "").toLowerCase();
+      const qText = (q.question || "");
+      const grounded = [...contextNouns].some(n =>
+        qLower.includes(n.toLowerCase()) || qText.includes(n)
+      );
+      if (!grounded) ungrounded.push(q);
+    }
+
+    const groundedCount = questions.filter(q => q && !ungrounded.includes(q)).length;
+    if (groundedCount < minCount) {
+      return ungrounded;
+    }
+    return [];
+  }
+
+  /**
+   * Repair truncated JSON arrays. Handles the case where n_predict runs out
+   * mid-object — closes the last complete element and the array.
+   */
+  function repairJSON(content) {
+    let s = (content || "").trim();
+    const fm = s.match(/^[\s\n]*```(?:json)?\s*\n([\s\S]*?)\n?\s*```\s*$/);
+    if (fm) s = fm[1].trim();
+    // Close trailing truncation: find last complete object, close array after it
+    let depth = 0, lastClose = -1;
+    for (let i = s.length - 1; i >= 0; i--) {
+      if (s[i] === "}") { depth++; if (depth === 1) lastClose = i; }
+      if (s[i] === "{") depth--;
+    }
+    if (lastClose >= 0) s = s.substring(0, lastClose + 1) + "]";
+    const end = s.lastIndexOf("]");
+    if (end >= 0) s = s.substring(0, end + 1);
+    return s;
+  }
+
   function buildGenerateQuestionsPrompt(req) {
     const roundLabel = req.round === "behavioral" ? "Behavioral (STAR)" : "Technical";
-    const contextLine = req.candidateContext
-      ? `Candidate context (resume or job description):\n${req.candidateContext}`
-      : `No candidate context provided. Generate questions grounded in the topic taxonomy below.`;
+    const hasContext = typeof req.candidateContext === "string" && req.candidateContext.trim().length > 0;
+    const exclude = (req.excludeTopics && req.excludeTopics.length)
+      ? `Do not repeat: ${req.excludeTopics.join(", ")}.` : "";
 
-    const excludeLine = (req.excludeTopics && req.excludeTopics.length)
-      ? `Topics already used recently (do NOT repeat these): ${req.excludeTopics.join(", ")}`
-      : "No topics are excluded.";
+    if (hasContext) {
+      return [
+        `Write ${req.count} interview questions about this candidate's experience. Name their specific projects or technologies.`,
+        `Role: ${req.role}, ${req.level}, ${roundLabel}. Topics: ${req.topicTaxonomy || "backend engineering"}.`,
+        exclude,
+        "",
+        req.candidateContext,
+        "",
+        "Output a JSON array. Each object: {\"question\": ..., \"topic\": ..., \"whatAGoodAnswerCovers\": [...], \"commonMistakes\": [...]}"
+      ].join("\n");
+    }
 
-    const exemplarLines = (req.exemplars || []).map((ex, i) =>
-      `Example ${i + 1}:\n  question: "${ex.question}"\n  topic: "${ex.topic}"\n  whatAGoodAnswerCovers: ${JSON.stringify(ex.whatAGoodAnswerCovers)}\n  commonMistakes: ${JSON.stringify(ex.commonMistakes)}`
-    ).join("\n\n");
+    const exemplarLines = (req.exemplars || []).slice(0, 2).map((ex, i) =>
+      `Example ${i + 1}: {"question":"${ex.question}","topic":"${ex.topic}","whatAGoodAnswerCovers":${JSON.stringify(ex.whatAGoodAnswerCovers)},"commonMistakes":${JSON.stringify(ex.commonMistakes)}}`
+    ).join("\n");
 
     return [
-      "You are an experienced interviewer generating mock interview questions for a candidate.",
-      "",
-      `Role: ${req.role}`,
-      `Level: ${req.level}`,
-      `Round: ${roundLabel}`,
-      `Generate exactly ${req.count} question(s) for this round.`,
-      "",
-      contextLine,
-      "",
-      `Topic taxonomy for this role/level (stay on-domain): ${req.topicTaxonomy || "(not provided)"}`,
-      "",
-      excludeLine,
-      "",
-      "Each question must be:",
-      "- A real interview question, 8-60 words, no placeholders like [topic] or 'your project'",
-      "- On a distinct topic from the taxonomy (or from the candidate context if provided)",
-      "- Calibrated to the level: easy = fundamentals, medium = applied/intermediate, advanced = system-level/senior",
-      "",
-      "For each question, provide:",
-      '- "question": the question text',
-      '- "topic": a short topic label (2-4 words) for the exclusion list',
-      '- "whatAGoodAnswerCovers": 3-5 things a strong answer should address',
-      '- "commonMistakes": 2-3 common mistakes weak answers make',
-      "",
-      "Few-shot examples (match the shape and difficulty calibration):",
-      exemplarLines || "(no examples provided)",
-      "",
-      "Write out every field in full. Never use \"...\" or any other placeholder text.",
-      "",
-      "Respond with a JSON array matching the schema exactly, no extra text."
+      `Write ${req.count} interview questions on distinct topics from: ${req.topicTaxonomy || req.role}.`,
+      `Role: ${req.role}, ${req.level}, ${roundLabel}.`,
+      exemplarLines,
+      exclude,
+      "Output a JSON array. No extra text."
     ].join("\n");
   }
 
   /**
-   * Generate interview questions grounded in the candidate's resume or a job
-   * description, with the grading anchor generated alongside.
-   * @param {{role:string, level:string, round:string, candidateContext?:string, excludeTopics?:string[], exemplars?:object[], topicTaxonomy?:string, count:number}} req
-   *        round is "behavioral" or "technical". candidateContext is resume/JD text (optional).
-   *        exemplars are few-shot bank questions matching the round and level.
-   * @returns {Promise<Array<{question:string, topic:string, whatAGoodAnswerCovers:string[], commonMistakes:string[]}>|null>}
-   *         Returns null on total failure (caller falls back to bank questions).
+   * Generate interview questions grounded in resume/JD, with grading anchor.
+   * No GBNF grammar — on this model it causes 30-40% "..." collapse.
+   * @param {{role, level, round, candidateContext?, excludeTopics?, exemplars?, topicTaxonomy?, count}} req
+   * @returns {Promise<Array<{question, topic, whatAGoodAnswerCovers, commonMistakes}>|null>}
    */
   async function generateQuestions(req) {
-    const grammar = await loadGenerateQuestionGrammar();
     const prompt = buildGenerateQuestionsPrompt(req);
     const MAX_ATTEMPTS = 2;
+    const hasContext = typeof req.candidateContext === "string" && req.candidateContext.trim().length > 0;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      let parsed;
+      let content;
       try {
         const data = await postCompletion("generateQuestions", {
-          prompt,
-          grammar,
-          temperature: 0.5,
-          n_predict: 4000,
-          stream: false
+          prompt, temperature: 0.7, n_predict: 8000, stream: false
         });
-        parsed = parseCompletionContent("generateQuestions", data);
+        content = data.content;
       } catch (err) {
         console.warn(`generateQuestions(): attempt ${attempt + 1} failed — ${err.message}`);
         if (attempt === MAX_ATTEMPTS - 1) return null;
         continue;
       }
 
+      let parsed;
+      try { parsed = JSON.parse(content); }
+      catch (e1) {
+        try { parsed = JSON.parse(repairJSON(content)); }
+        catch (e2) {
+          console.warn(`generateQuestions(): attempt ${attempt + 1} unparseable`);
+          if (attempt === MAX_ATTEMPTS - 1) return null;
+          continue;
+        }
+      }
+
       if (!Array.isArray(parsed)) {
-        console.warn(`generateQuestions(): attempt ${attempt + 1} returned non-array`);
+        console.warn(`generateQuestions(): attempt ${attempt + 1} not an array`);
         if (attempt === MAX_ATTEMPTS - 1) return null;
         continue;
       }
 
-      const malformed = parsed.map(q => isMalformedQuestion(q)).filter(Boolean);
-      if (malformed.length === 0) {
-        return parsed;
+      const malformed = parsed.map(isMalformedQuestion).filter(Boolean);
+
+      let groundingFailed = [];
+      if (hasContext && malformed.length === 0) {
+        const minGrounded = Math.max(1, Math.round(req.count * 0.6));
+        groundingFailed = checkResumeGrounding(parsed, req.candidateContext, minGrounded);
       }
 
-      console.warn(`generateQuestions(): attempt ${attempt + 1} had ${malformed.length} malformed question(s):`);
-      malformed.forEach(reason => console.warn(`  - ${reason}`));
+      if (malformed.length === 0 && groundingFailed.length === 0) return parsed;
 
-      if (attempt === MAX_ATTEMPTS - 1) {
-        // Return only the valid ones, null for the failed slots so the caller
-        // knows which slots need bank fallback.
+      if (malformed.length > 0) {
+        console.warn(`generateQuestions(): attempt ${attempt + 1} ${malformed.length} malformed:`);
+        malformed.forEach(r => console.warn(`  - ${r}`));
+      }
+      if (groundingFailed.length > 0) {
+        console.warn(`generateQuestions(): attempt ${attempt + 1} ${groundingFailed.length} not grounded`);
+        groundingFailed.forEach(q => console.warn(`  - "${(q.question||"").substring(0,80)}"`));
+      }
+
+      if (attempt === MAX_ATTEMPTS - 1)
         return parsed.map(q => isMalformedQuestion(q) ? null : q);
-      }
     }
-
     return null;
   }
 
@@ -849,8 +919,23 @@ if (typeof module !== "undefined" && module.exports) module.exports = LLM;
 // Run from browser console: await testGenerateQuestions()
 if (typeof window !== "undefined") {
   window.testGenerateQuestions = async function() {
-    const WITH_RESUME = "3 years as a backend developer, built REST APIs in Node.js and Python, experienced with PostgreSQL, Redis, Docker. Led migration from monolith to microservices.";
-    const EXEMPLARS = [
+    const REAL_RESUME = "Backend engineer, 4 years. Built a payment retry system at Razorpay — RabbitMQ dead-letter queues with exponential backoff, reduced dropped transactions by 40%. Wrote the PostgreSQL partitioning migration that moved our audit_log table (900M rows) from a single table to monthly partitions without downtime. At my current role I maintain 12 Node.js microservices behind Kong API gateway. Worked on a RAG pipeline for internal docs search using pgvector.";
+
+    const RESUME_EXEMPLARS = [
+      {
+        question: "You mentioned you built a payment retry system at Razorpay using RabbitMQ. Walk me through what happens when the retry queue backs up.",
+        topic: "Dead letter queues",
+        whatAGoodAnswerCovers: ["DLQ architecture specifics", "How they tracked which messages had been retried", "What happened to messages that exhausted all retries"],
+        commonMistakes: ["Only describing the happy path", "No explanation of DLQ routing logic"]
+      },
+      {
+        question: "What's the difference between SQL and NoSQL databases?",
+        topic: "SQL vs NoSQL",
+        whatAGoodAnswerCovers: ["Schema flexibility tradeoffs", "When to choose each", "Real-world example of using one"],
+        commonMistakes: ["Saying NoSQL is just 'not structured'", "No example from real use"]
+      }
+    ];
+    const GENERIC_EXEMPLARS = [
       {
         question: "What's the difference between SQL and NoSQL databases?",
         topic: "SQL vs NoSQL",
@@ -869,7 +954,7 @@ if (typeof window !== "undefined") {
     console.log("=== WITH RESUME (5 questions) ===");
     const withResume = await LLM.generateQuestions({
       role: "Backend Developer", level: "easy", round: "technical",
-      candidateContext: WITH_RESUME, excludeTopics: [], exemplars: EXEMPLARS,
+      candidateContext: REAL_RESUME, excludeTopics: [], exemplars: RESUME_EXEMPLARS,
       topicTaxonomy: TAXONOMY, count: 5
     });
     console.table(withResume);
@@ -877,7 +962,7 @@ if (typeof window !== "undefined") {
     console.log("=== WITHOUT RESUME (topic-seeded, 5 questions) ===");
     const noResume = await LLM.generateQuestions({
       role: "Backend Developer", level: "easy", round: "technical",
-      candidateContext: null, excludeTopics: [], exemplars: EXEMPLARS,
+      candidateContext: null, excludeTopics: [], exemplars: GENERIC_EXEMPLARS,
       topicTaxonomy: TAXONOMY, count: 5
     });
     console.table(noResume);
@@ -886,8 +971,8 @@ if (typeof window !== "undefined") {
     const start = performance.now();
     await LLM.generateQuestions({
       role: "Backend Developer", level: "advanced", round: "technical",
-      candidateContext: WITH_RESUME, excludeTopics: [], exemplars: EXEMPLARS,
-      topicTaxonomy: "Microservices, queues, CQRS, rate limiting", count: 2
+      candidateContext: REAL_RESUME, excludeTopics: ["Dead letter queues", "Database partitioning", "API gateway", "Microservices", "RAG pipeline"],
+      exemplars: GENERIC_EXEMPLARS, topicTaxonomy: "Microservices, queues, CQRS, rate limiting", count: 2
     });
     console.log(`Full round generation: ${(performance.now() - start).toFixed(0)}ms`);
 

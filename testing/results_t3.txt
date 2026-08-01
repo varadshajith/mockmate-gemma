@@ -2,15 +2,36 @@
 
 
 --- B1: Strong STAR, all slots covered ---
+  Addressed: [Situation, Task, Action, Result]
+  Missing:   []
+  Latency:   696ms
+  Key slot "Result": ✓ correctly classified as ADDRESSED
+  All slots: ✓ fully correct
 
 --- B2: Rambling, no Result — should trigger interruption ---
+  Addressed: [Situation, Task, Action, Result]
+  Missing:   []
+  Latency:   616ms
 
 --- T1: Solid technical, all slots ---
+  Addressed: [Definition, Mechanism, Tradeoff, Experience]
+  Missing:   []
+  Latency:   655ms
+  Key slot "Tradeoff": ✓ correctly classified as ADDRESSED
+  All slots: ✓ fully correct
 
 --- T2: Definition only — key slot (Tradeoff) missing ---
+  Addressed: [Definition, Mechanism, Tradeoff, Experience]
+  Missing:   []
+  Latency:   627ms
 
 --- T3: Has experience but no mechanism or tradeoff ---
+  Addressed: [Definition, Mechanism, Experience]
+  Missing:   [Tradeoff]
+  Latency:   606ms
+  Key slot "Tradeoff": ✓ correctly classified as MISSING
 
 === Summary ===
-Key slot accuracy: 0/5
+Key slot accuracy: 3/5
+Latency — avg: 640ms, max: 696ms
 === End ===

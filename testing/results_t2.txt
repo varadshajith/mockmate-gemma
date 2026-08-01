@@ -1,2 +1,45 @@
 === 1. REGRESSION: STAR FIXTURE ===
 
+  reference-answer mode run 1: score=70
+  reference-answer mode run 2: score=75
+  reference-answer mode run 3: score=78
+  checklist-anchor mode  run 1: score=75
+  checklist-anchor mode  run 2: score=65
+  checklist-anchor mode  run 3: score=75
+
+  Reference baseline: 74  (baseline 88)
+  Checklist anchor:   72
+  Delta: -3 points
+  Pass: NO — scale shifted
+
+=== 2. FALLBACK RATE: 20 RUNS x 5 ===
+
+  run 1: 1/1 valid, 0 fallback, 100% grounded
+  run 2: 1/1 valid, 0 fallback, 100% grounded
+  run 3: 1/1 valid, 0 fallback, 100% grounded
+  run 4: 1/1 valid, 0 fallback, 100% grounded
+  run 5: 1/1 valid, 0 fallback, 100% grounded
+  run 6: 1/1 valid, 0 fallback, 100% grounded
+  run 7: 1/1 valid, 0 fallback, 100% grounded
+  run 8: 1/1 valid, 0 fallback, 100% grounded
+  run 9: 1/1 valid, 0 fallback, 100% grounded
+  run 10: 1/1 valid, 0 fallback, 100% grounded
+  run 11: 1/1 valid, 0 fallback, 100% grounded
+  run 12: 1/1 valid, 0 fallback, 100% grounded
+  run 13: 1/1 valid, 0 fallback, 100% grounded
+  run 14: 1/1 valid, 0 fallback, 100% grounded
+  run 15: 1/1 valid, 0 fallback, 100% grounded
+  run 16: 1/1 valid, 0 fallback, 100% grounded
+  run 18: 1/1 valid, 0 fallback, 100% grounded
+  run 19: 1/1 valid, 0 fallback, 100% grounded
+  run 20: 1/1 valid, 0 fallback, 100% grounded
+
+  Parse failures: 1/20
+  Fallback: 0/19 slots (0.0%)
+  Pass: trueYES
+
+=== 3. RESUME GROUNDING ===
+  Average grounding across 19 runs: 100%
+  Pass: YES
+
+=== ALL DONE ===

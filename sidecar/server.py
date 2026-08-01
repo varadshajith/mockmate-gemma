@@ -7,6 +7,7 @@ Run:  sidecar/.venv/bin/python sidecar/server.py
 """
 
 import asyncio
+import base64
 import json
 import re
 import sys
@@ -182,6 +183,12 @@ class RollingTranscriber:
         await self.websocket.send(_message(
             "transcript", text=final_text, chunkIndex=self.turn_index,
             cutReason=reason, durationSeconds=round(self.chunker.duration_seconds, 2),
+        ))
+        wav = audio_level.float32_to_wav_bytes(self.chunker.samples)
+        await self.websocket.send(_message(
+            "answer_audio", seq=self.turn_index,
+            wav_b64=base64.b64encode(wav).decode("ascii"),
+            duration_ms=round(self.chunker.duration_seconds * 1000),
         ))
         self.turn_index += 1
         self.committed = ""

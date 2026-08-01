@@ -1123,7 +1123,7 @@ async function gradeAnswers(answers, roundType) {
       out.push({ question: ans.question, userAnswer: ans.userAnswer, score: g.score,
         strengths: g.strengths || [], improvements: g.improvements || [],
         modelAnswer: g.modelAnswer || ans.modelAnswer, complexity: g.complexity || null,
-        feedback: g.feedback || "", roundType });
+        feedback: g.feedback || "", gradedFrom: g.gradedFrom || "text", roundType });
       continue;
     }
     try {
@@ -1134,7 +1134,7 @@ async function gradeAnswers(answers, roundType) {
       out.push({ question: ans.question, userAnswer: ans.userAnswer, score: g.score,
         strengths: g.strengths || [], improvements: g.improvements || [],
         modelAnswer: g.modelAnswer || ans.modelAnswer, complexity: g.complexity || null,
-        feedback: g.feedback || "", roundType });
+        feedback: g.feedback || "", gradedFrom: g.gradedFrom || "text", roundType });
     } catch (e) {
       console.error("Evaluation failed:", e);
       out.push({ question: ans.question, userAnswer: ans.userAnswer, score: 0,
@@ -1644,9 +1644,11 @@ async function evaluateAndMaybeProbe(userAnswer) {
   const probeUsedForCall = q.isProbeFollowUp ? true : session.probeUsed;
 
   let graded;
+  const answerAudio = LocalAudio.getLastAnswerAudio();
   try {
     graded = await LLM.evaluate({
-      question: q.text, userAnswer, modelAnswer: q.modelAnswer, category, probeUsed: probeUsedForCall
+      question: q.text, userAnswer, modelAnswer: q.modelAnswer, category, probeUsed: probeUsedForCall,
+      audioB64: answerAudio?.wavB64
     });
   } catch (err) {
     console.error("Live evaluation failed, will grade at round end:", err);
@@ -2100,6 +2102,7 @@ function viewResults() {
                   <span class="badge badge-primary">Q${idx + 1}</span>
                   <span style="font-size:15px; font-weight:600;">${ans.question.substring(0, 50)}...</span>
                   <span class="badge ${ans.score >= 80 ? 'badge-success' : ans.score >= 70 ? 'badge-warning' : 'badge-error'}" style="margin-left:12px;">${ans.score}%</span>
+                  <span class="badge badge-primary" style="margin-left:8px;">${ans.gradedFrom === "audio+text" ? "Audio + text" : "Text only"}</span>
                 </div>
                 <i data-lucide="chevron-down" class="chevron"></i>
               </button>

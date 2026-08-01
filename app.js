@@ -89,7 +89,8 @@ function createFreshState(overrides = {}) {
     currentInterview: null,
     settings: {
       theme: "light",
-      aiVoiceEnabled: true
+      aiVoiceEnabled: true,
+      interruptionsEnabled: true
     },
     ...overrides
   };
@@ -277,7 +278,12 @@ function getExclusionTopics(roleId) {
     const roleTopics = record[roleId];
     if (!roleTopics || typeof roleTopics !== "object") return [];
     const now = Date.now();
-    const THREE_SESSIONS_MS = 72 * 60 * 60 * 1000; // 72h as a proxy for "last 3 sessions"
+    // 72h window: two sessions in one evening excludes correctly, but a
+    // week later the full topic set is available again. Deliberate — a
+    // coach that permanently burns topics would run dry. A session count
+    // (not time) would be more correct but requires session tracking
+    // infrastructure that doesn't exist yet. This is a reasonable proxy.
+    const THREE_SESSIONS_MS = 72 * 60 * 60 * 1000;
     return Object.entries(roleTopics)
       .filter(([, ts]) => now - ts < THREE_SESSIONS_MS)
       .map(([topic]) => topic);
@@ -351,6 +357,9 @@ function loadStateFromStorage() {
     APP_STATE.settings = JSON.parse(savedSettings);
     if (APP_STATE.settings.aiVoiceEnabled === undefined) {
       APP_STATE.settings.aiVoiceEnabled = true;
+    }
+    if (APP_STATE.settings.interruptionsEnabled === undefined) {
+      APP_STATE.settings.interruptionsEnabled = true;
     }
   }
 
@@ -935,6 +944,7 @@ function viewSetupWizard() {
     roleId: "frontend",
     level: "easy",
     aiVoiceEnabled: APP_STATE.settings.aiVoiceEnabled !== false,
+    interruptionsEnabled: APP_STATE.settings.interruptionsEnabled !== false,
     candidateContext: localStorage.getItem("gemma_v2_context") || ""
   };
 
@@ -972,6 +982,7 @@ function viewSetupWizard() {
   window.selectRoleCard = (id) => { setupData.roleId = id; renderStep(); };
   window.selectLevelCard = (lv) => { setupData.level = lv; renderStep(); };
   window.toggleSetupVoice = (el) => { setupData.aiVoiceEnabled = el.checked; APP_STATE.settings.aiVoiceEnabled = el.checked; saveStateToStorage(); };
+  window.toggleSetupInterruptions = (el) => { setupData.interruptionsEnabled = el.checked; APP_STATE.settings.interruptionsEnabled = el.checked; saveStateToStorage(); };
 
   function progressDots() {
     return STEP_LABELS.map((lbl, i) => {
@@ -1037,11 +1048,19 @@ function viewSetupWizard() {
   function renderSettingsStep() {
     const savedContext = localStorage.getItem("gemma_v2_context") || "";
     return `<h3 class="setup-step-title">4. Settings</h3>
-      <div class="form-group" style="margin-top:16px;"><label class="form-label">Voice</label>
-        <label class="checkbox-container" style="margin-top:8px;"><input type="checkbox" ${setupData.aiVoiceEnabled ? 'checked' : ''} onchange="toggleSetupVoice(this)"> Read questions aloud (AI voice)</label></div>
+      <div class="form-group" style="margin-top:16px;"><label class="form-label">Voice & Coaching</label>
+        <label class="checkbox-container" style="margin-top:8px;"><input type="checkbox" ${setupData.aiVoiceEnabled ? 'checked' : ''} onchange="toggleSetupVoice(this)"> Read questions aloud (AI voice)</label>
+        <label class="checkbox-container" style="margin-top:8px;"><input type="checkbox" ${setupData.interruptionsEnabled ? 'checked' : ''} onchange="toggleSetupInterruptions(this)"> Enable mid-answer interruptions if I get off track</label></div>
       <div class="form-group" style="margin-top:16px;"><label class="form-label">Resume or Job Description (optional)</label>
         <textarea id="setup-context-input" class="answer-textarea" placeholder="Paste your resume text or a job description here. Questions will be personalised from this context.&#10;&#10;Skippable — if left blank, questions are generated from topic taxonomies." style="min-height:120px; font-size:13px;">${savedContext}</textarea>
-        <span style="font-size:12px; color:var(--text-muted); display:block; margin-top:4px;">Used to personalise questions per session.</span></div>`;
+        <span style="font-size:12px; color:var(--text-muted); display:block; margin-top:4px;">Used to personalise questions per session.</span></div>
+      <div class="form-group" style="margin-top:16px;">
+        <label class="form-label">Privacy &amp; Interview Memory</label>
+        <button class="btn btn-secondary" onclick="clearInterviewMemory()" style="margin-top:4px; display:inline-flex; align-items:center; gap:6px;">
+          <i data-lucide="trash-2" style="width:16px; height:16px;"></i> Clear interview memory
+        </button>
+        <span style="font-size:12px; color:var(--text-muted); display:block; margin-top:4px;">Deletes stored weak areas used to tailor question selection across interviews.</span>
+      </div>`;
   }
 
   function renderConfirmStep() {
@@ -1057,6 +1076,7 @@ function viewSetupWizard() {
       ${row("Level", `${r.label} — ${r.tag}`)}
       ${row("Rounds", roundNames)}
       ${row("AI Voice", setupData.aiVoiceEnabled ? 'Enabled' : 'Disabled')}
+      ${row("Interruptions", setupData.interruptionsEnabled ? 'Enabled' : 'Disabled')}
       ${row("Questions", hasContext ? "Personalised from your resume" : "Topic-seeded from role taxonomy")}
       <div class="badge badge-info" style="margin-top:20px; display:flex; gap:8px; padding:12px 16px;"><i data-lucide="info" style="width:16px;height:16px;"></i><span>Timers scale with level — ${Math.round(r.behavioralTimer / 60)} min for the Behavioral round.</span></div>`;
   }
@@ -1142,6 +1162,21 @@ async function beginRound(i) {
   const excludeTopics = getExclusionTopics(s.roleId);
   const exemplars = pickExemplars(s.roleId, s.level, type);
 
+  // Retrieve prior weaknesses from memory — degrade silently on any failure.
+  let priorWeaknesses = [];
+  try {
+    const memoryQuery = `${role.name} ${topicTaxonomy}`.trim();
+    priorWeaknesses = await InterviewMemory.retrieve(memoryQuery, { roleId: s.roleId, limit: 3, threshold: 0.45 });
+    if (priorWeaknesses.length > 0) {
+      s.priorWeaknessTopics = priorWeaknesses.map(w => w.topic);
+      s.priorWeaknesses = priorWeaknesses.map(w => ({ topic: w.topic, score: w.score }));
+      s.openingLine = `Last time you had trouble with ${priorWeaknesses[0].topic}. I've worked that back in.`;
+      console.log("[memory] Retrieved prior weaknesses:", priorWeaknesses.map(w => `${w.topic} (sim=${w.similarity?.toFixed(2)}, score=${w.score})`));
+    }
+  } catch (e) {
+    console.warn("beginRound(): memory retrieval failed, continuing without priors", e);
+  }
+
   // Try model generation first, fall back to bank questions for failed slots.
   let generatedQs = [];
   try {
@@ -1153,6 +1188,7 @@ async function beginRound(i) {
       excludeTopics,
       exemplars,
       topicTaxonomy,
+      priorWeaknesses,
       count
     });
   } catch (e) {
@@ -1172,6 +1208,7 @@ async function beginRound(i) {
         qs.push({
           id: `gen_${j}`,
           text: gq.question,
+          topic: gq.topic || "",
           category: catLabel,
           hint: (gq.whatAGoodAnswerCovers || []).join("; ") || "Structure your answer to cover the key points.",
           whatAGoodAnswerCovers: gq.whatAGoodAnswerCovers || [],
@@ -1252,7 +1289,7 @@ async function gradeAnswers(answers, roundType) {
   const out = [];
   for (const ans of answers) {
     if (ans.userAnswer === "[Question Skipped]") {
-      out.push({ question: ans.question, userAnswer: ans.userAnswer, score: 0,
+      out.push({ question: ans.question, topic: ans.topic || "", userAnswer: ans.userAnswer, score: 0,
         strengths: [], improvements: ["Question skipped."], modelAnswer: ans.modelAnswer, complexity: null, roundType });
       continue;
     }
@@ -1260,7 +1297,7 @@ async function gradeAnswers(answers, roundType) {
     // was submitted — reuse it instead of calling evaluate() a second time.
     if (ans.graded) {
       const g = ans.graded;
-      out.push({ question: ans.question, userAnswer: ans.userAnswer, score: g.score,
+      out.push({ question: ans.question, topic: ans.topic || "", userAnswer: ans.userAnswer, score: g.score,
         strengths: g.strengths || [], improvements: g.improvements || [],
         modelAnswer: g.modelAnswer || ans.modelAnswer, complexity: g.complexity || null,
         feedback: g.feedback || "", gradedFrom: g.gradedFrom || "text", roundType });
@@ -1272,13 +1309,13 @@ async function gradeAnswers(answers, roundType) {
         whatAGoodAnswerCovers: ans.whatAGoodAnswerCovers,
         category: (roundType === "technical" || roundType === "systemDesign") ? "Technical" : "Behavioral"
       });
-      out.push({ question: ans.question, userAnswer: ans.userAnswer, score: g.score,
+      out.push({ question: ans.question, topic: ans.topic || "", userAnswer: ans.userAnswer, score: g.score,
         strengths: g.strengths || [], improvements: g.improvements || [],
         modelAnswer: g.modelAnswer || ans.modelAnswer, complexity: g.complexity || null,
         feedback: g.feedback || "", gradedFrom: g.gradedFrom || "text", roundType });
     } catch (e) {
       console.error("Evaluation failed:", e);
-      out.push({ question: ans.question, userAnswer: ans.userAnswer, score: 0,
+      out.push({ question: ans.question, topic: ans.topic || "", userAnswer: ans.userAnswer, score: 0,
         strengths: [], improvements: ["Local model unavailable — is llama-server running?"],
         modelAnswer: ans.modelAnswer, complexity: null, roundType, evalError: true });
     }
@@ -1379,6 +1416,13 @@ function viewInterview() {
           <button class="btn btn-secondary" onclick="triggerExitConfirm()" style="padding: 8px 16px; font-size:14px;">Exit</button>
         </div>
       </div>
+
+      ${session.openingLine ? `
+        <div class="memory-banner" style="margin-bottom: 16px; padding: 12px 16px; background: rgba(6, 182, 212, 0.1); border: 1px solid var(--info); border-radius: var(--radius-md); display: flex; align-items: center; gap: 10px; color: var(--text-main); font-size: 14px;">
+          <i data-lucide="brain" style="width: 18px; height: 18px; color: var(--info); flex-shrink: 0;"></i>
+          <span>${session.openingLine}</span>
+        </div>
+      ` : ''}
       
       <!-- Workspace Layout — identical for both rounds; both are spoken. -->
         <div class="interview-workspace">
@@ -1726,6 +1770,16 @@ function loadInterviewQuestion() {
   const qTextEl = document.getElementById("interview-q-text");
   if (qTextEl) qTextEl.innerText = q.text;
 
+  // Stop Point B Setup
+  if (session.interruptionTimer) clearTimeout(session.interruptionTimer);
+  session.liveCommittedText = "";
+  session.lastTranscriptPartialTime = 0;
+  session.interruptionFired = false;
+  
+  if (session.interruptionsEnabled !== false) {
+    session.interruptionTimer = setTimeout(maybeInterrupt, INTERRUPT_AFTER_SECONDS * 1000);
+  }
+
   // Reset hint
   const hintDisplay = document.getElementById("hint-display-box");
   if (hintDisplay) {
@@ -1827,6 +1881,7 @@ async function evaluateAndMaybeProbe(userAnswer) {
     session.questions.splice(session.currentQuestionIndex + 1, 0, {
       id: followUp.id,
       text: followUp.text,
+      topic: q.topic || "",
       category: followUp.category || "Adaptive Follow-up",
       hint: followUp.hint,
       modelAnswer: q.modelAnswer,
@@ -1840,8 +1895,60 @@ async function evaluateAndMaybeProbe(userAnswer) {
   }
 }
 
+const INTERRUPTION_LINES = {
+  Result: "Sorry to cut in — what was the outcome?",
+  Tradeoff: "Let me stop you there — what did you give up?"
+};
+const INTERRUPT_AFTER_SECONDS = 15;
+
+async function maybeInterrupt() {
+  const session = APP_STATE.currentInterview;
+  if (!session || session.interruptionsEnabled === false || session.interruptionFired) return;
+
+  const text = session.liveCommittedText || "";
+  if (text.split(/\s+/).length <= 20) return;
+
+  const now = Date.now();
+  if (!session.lastTranscriptPartialTime || now - session.lastTranscriptPartialTime > 3000) return;
+
+  const currentQ = session.questions[session.currentQuestionIndex];
+  if (!currentQ) return;
+  const isSD = isTechnicalQuestion(currentQ, session.roundType);
+  const keySlot = isSD ? "Tradeoff" : "Result";
+  
+  const slotDef = isSD ? SLOT_DEFINITIONS.systemDesign.find(s => s.id === keySlot) : SLOT_DEFINITIONS.behavioral.find(s => s.id === keySlot);
+  if (!slotDef) return;
+  
+  const status = getSlotStatus(text, slotDef.filled, []);
+  if (status === "addressed") {
+    return;
+  }
+
+  try {
+    const res = await LLM.checkSlots({
+      question: currentQ.text,
+      partialTranscript: text,
+      keySlot
+    });
+
+    if (res.missing) {
+      session.interruptionFired = true;
+      const line = INTERRUPTION_LINES[keySlot] || "Let me stop you there.";
+      console.log(`[Dry Run] Interruption fired: ${line}`);
+    }
+  } catch (err) {
+    console.warn("maybeInterrupt skipped:", err);
+  }
+}
+
 window.submitInterviewAnswer = async function() {
   try {
+    const session = APP_STATE.currentInterview;
+    if (session && session.interruptionTimer) {
+      clearTimeout(session.interruptionTimer);
+      session.interruptionTimer = null;
+    }
+
     const ans = document.getElementById("interview-answer-input").value.trim();
     if (ans.length === 0) {
       showToast("Please enter an answer or click Skip", "error");
@@ -1853,7 +1960,7 @@ window.submitInterviewAnswer = async function() {
     saveAnswer(ans);
     showToast("Answer saved successfully");
     
-    const session = APP_STATE.currentInterview;
+
     const currentQ = session.questions[session.currentQuestionIndex];
 
     if (currentQ && currentQ.category !== "Adaptive Follow-up" && !session.hasInjectedFollowUp) {
@@ -1888,6 +1995,7 @@ window.submitInterviewAnswer = async function() {
           const followUpQ = {
             id: "followup-tech",
             text: followUpText,
+            topic: currentQ.topic || "",
             category: "Adaptive Follow-up",
             hint: `Add details for the missing slot: ${slotName}.`,
             modelAnswer: `Detailed explanation covering the slot ${slotName}.`
@@ -1933,6 +2041,7 @@ window.submitInterviewAnswer = async function() {
             const contradictionQ = {
               id: "contradiction-probe",
               text: contradictionProbeText,
+              topic: "",
               category: "Contradiction Probe",
               hint: "Reconcile the difference between your previous statement and current answer.",
               modelAnswer: "Clear reconciliation explaining how both statements fit together or correcting the mistake."
@@ -1960,11 +2069,19 @@ function saveAnswer(text) {
   
   session.answers.push({
     question: q.text,
+    topic: q.topic || "",
     userAnswer: text,
     category: q.category,
     modelAnswer: q.modelAnswer,
-    whatAGoodAnswerCovers: q.whatAGoodAnswerCovers
+    whatAGoodAnswerCovers: q.whatAGoodAnswerCovers,
+    wasInterrupted: !!session.interruptionFired
   });
+}
+
+// maybeStoreWeakAnswer lives in src/memory_persist.js (MemoryPersist.maybeStoreWeakAnswer).
+// All gate conditions are there — do not duplicate them here or in tests.
+async function maybeStoreWeakAnswer(gradedAns, session) {
+  return MemoryPersist.maybeStoreWeakAnswer(gradedAns, session);
 }
 
 function nextInterviewStep() {
@@ -2155,6 +2272,28 @@ async function generateFinalAnalysisReport() {
   // Weakest question texts feed the recommendation prompt.
   const weakAreas = [...graded].filter(a => a.score < 70).sort((a, b) => a.score - b.score).slice(0, 3).map(a => a.question);
 
+  // Persist weak answers to interview memory. Each call is independent —
+  // a failure on one answer never blocks the others or the report.
+  for (const g of graded) {
+    await maybeStoreWeakAnswer(g, session);
+  }
+
+  // Progress comparison — topic match, score > prior only
+  const progressItems = [];
+  if (session.priorWeaknesses && session.priorWeaknesses.length) {
+    for (const prior of session.priorWeaknesses) {
+      if (!prior.topic) continue;
+      const match = graded.find(g => g.topic && g.topic.toLowerCase() === prior.topic.toLowerCase());
+      if (match && Number.isFinite(match.score) && match.score > prior.score) {
+        progressItems.push({
+          topic: prior.topic,
+          priorScore: prior.score,
+          newScore: match.score
+        });
+      }
+    }
+  }
+
   // Real level-aware recommendations from the local model (no static score×level table).
   let recommendations = null;
   try {
@@ -2180,6 +2319,7 @@ async function generateFinalAnalysisReport() {
     aiVoiceEnabled: session.aiVoiceEnabled === true,
     roundScores,
     recommendations,
+    progress: progressItems.length ? progressItems : null,
     answers: graded,
     skills: deriveSkills(overall)
   };
@@ -2264,6 +2404,22 @@ function viewResults() {
         </div>
       </div>` : ''}
 
+      ${report.progress && report.progress.length ? `
+      <div class="card memory-progress-card">
+        <h3 style="font-size:18px; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+          <i data-lucide="trending-up" style="color:var(--success); width:20px; height:20px;"></i>
+          Progress from Prior Weak Areas
+        </h3>
+        <div class="memory-progress-list" style="display:flex; flex-direction:column; gap:8px;">
+          ${report.progress.map(p => `
+            <div class="memory-progress-item" style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); padding:10px 14px; border-radius:var(--radius-sm); border-left:3px solid var(--success);">
+              <span style="font-weight:600; font-size:14.5px;">Topic: ${p.topic}</span>
+              <span class="badge badge-success" style="font-size:14px; padding:4px 10px;">${p.priorScore} &rarr; ${p.newScore}</span>
+            </div>
+          `).join("")}
+        </div>
+      </div>` : ''}
+
       ${report.recommendations ? `
       <div class="card ai-coach-card">
         <h3 style="font-size:18px; margin-bottom:16px;"><i data-lucide="sparkles" style="width:18px;height:18px;vertical-align:middle;"></i> AI Coach</h3>
@@ -2290,6 +2446,7 @@ function viewResults() {
                   <span style="font-size:15px; font-weight:600;">${ans.question.substring(0, 50)}...</span>
                   <span class="badge ${ans.score >= 80 ? 'badge-success' : ans.score >= 70 ? 'badge-warning' : 'badge-error'}" style="margin-left:12px;">${ans.score}%</span>
                   <span class="badge badge-primary" style="margin-left:8px;">${ans.gradedFrom === "audio+text" ? "Audio + text" : "Text only"}</span>
+                  ${ans.wasInterrupted ? `<span class="badge badge-warning" style="margin-left:8px;">Interrupted</span>` : ''}
                 </div>
                 <i data-lucide="chevron-down" class="chevron"></i>
               </button>
@@ -2357,6 +2514,15 @@ window.readResultsSummaryById = function(reportId) {
 window.toggleCollapsibleCard = function(button) {
   const card = button.parentElement;
   card.classList.toggle("open");
+};
+
+window.clearInterviewMemory = function() {
+  if (typeof InterviewMemory !== "undefined") {
+    InterviewMemory.clear();
+  } else {
+    localStorage.removeItem("gemma_v2_memory");
+  }
+  showToast("Interview memory cleared.", "info");
 };
 
 function drawRadarChart(svgId, skills) {
@@ -2858,6 +3024,12 @@ window.toggleSpeechToText = function() {
     committedEl.textContent = committed;
     tentativeEl.textContent = tentative ? `${committed ? " " : ""}${tentative}` : "";
     preview.classList.toggle("hidden", !committed && !tentative);
+
+    const session = APP_STATE.currentInterview;
+    if (session) {
+      session.liveCommittedText = committed;
+      session.lastTranscriptPartialTime = Date.now();
+    }
   }
 
   LocalAudio.startListening((transcript) => {

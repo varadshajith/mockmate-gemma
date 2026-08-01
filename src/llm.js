@@ -22,6 +22,7 @@ const LLM = (() => {
   const FOLLOWUP_GRAMMAR_PATH = "grammars/followup.gbnf";
   const RECOMMEND_GRAMMAR_PATH = "grammars/recommend.gbnf";
   const CONTRADICTION_GRAMMAR_PATH = "grammars/contradiction.gbnf";
+  const SLOTCHECK_GRAMMAR_PATH = "grammars/slotcheck.gbnf";
 
   // Generous on purpose. A warm request is ~2.3s, but the first call after
   // llama-server starts also pays for model warmup, and a tight timeout
@@ -170,10 +171,16 @@ const LLM = (() => {
   let evaluateGrammarPromise = null;
   function loadEvaluateGrammar() {
     if (!evaluateGrammarPromise) {
-      evaluateGrammarPromise = fetch(EVALUATE_GRAMMAR_PATH).then((res) => {
-        if (!res.ok) throw new Error(`Failed to load ${EVALUATE_GRAMMAR_PATH}: ${res.status}`);
-        return res.text();
-      });
+      if (typeof window === "undefined" && typeof require !== "undefined") {
+        const fs = require("fs");
+        const path = require("path");
+        evaluateGrammarPromise = Promise.resolve(fs.readFileSync(path.join(__dirname, "../", EVALUATE_GRAMMAR_PATH), "utf8"));
+      } else {
+        evaluateGrammarPromise = fetch(EVALUATE_GRAMMAR_PATH).then((res) => {
+          if (!res.ok) throw new Error(`Failed to load ${EVALUATE_GRAMMAR_PATH}: ${res.status}`);
+          return res.text();
+        });
+      }
     }
     return evaluateGrammarPromise;
   }
@@ -181,10 +188,16 @@ const LLM = (() => {
   let followupGrammarPromise = null;
   function loadFollowupGrammar() {
     if (!followupGrammarPromise) {
-      followupGrammarPromise = fetch(FOLLOWUP_GRAMMAR_PATH).then((res) => {
-        if (!res.ok) throw new Error(`Failed to load ${FOLLOWUP_GRAMMAR_PATH}: ${res.status}`);
-        return res.text();
-      });
+      if (typeof window === "undefined" && typeof require !== "undefined") {
+        const fs = require("fs");
+        const path = require("path");
+        followupGrammarPromise = Promise.resolve(fs.readFileSync(path.join(__dirname, "../", FOLLOWUP_GRAMMAR_PATH), "utf8"));
+      } else {
+        followupGrammarPromise = fetch(FOLLOWUP_GRAMMAR_PATH).then((res) => {
+          if (!res.ok) throw new Error(`Failed to load ${FOLLOWUP_GRAMMAR_PATH}: ${res.status}`);
+          return res.text();
+        });
+      }
     }
     return followupGrammarPromise;
   }
@@ -192,10 +205,16 @@ const LLM = (() => {
   let recommendGrammarPromise = null;
   function loadRecommendGrammar() {
     if (!recommendGrammarPromise) {
-      recommendGrammarPromise = fetch(RECOMMEND_GRAMMAR_PATH).then((res) => {
-        if (!res.ok) throw new Error(`Failed to load ${RECOMMEND_GRAMMAR_PATH}: ${res.status}`);
-        return res.text();
-      });
+      if (typeof window === "undefined" && typeof require !== "undefined") {
+        const fs = require("fs");
+        const path = require("path");
+        recommendGrammarPromise = Promise.resolve(fs.readFileSync(path.join(__dirname, "../", RECOMMEND_GRAMMAR_PATH), "utf8"));
+      } else {
+        recommendGrammarPromise = fetch(RECOMMEND_GRAMMAR_PATH).then((res) => {
+          if (!res.ok) throw new Error(`Failed to load ${RECOMMEND_GRAMMAR_PATH}: ${res.status}`);
+          return res.text();
+        });
+      }
     }
     return recommendGrammarPromise;
   }
@@ -255,8 +274,8 @@ const LLM = (() => {
     // answer should cover — the model checks each point.
     const gradingAnchor = (req.whatAGoodAnswerCovers && req.whatAGoodAnswerCovers.length)
       ? [
-          "What a good answer covers (grade against this checklist):",
-          req.whatAGoodAnswerCovers.map((item, i) => `${i + 1}. ${item}`).join("\n")
+          "Reference standard (compare the candidate's answer to these key points):",
+          req.whatAGoodAnswerCovers.map((item, i) => `- ${item}`).join("\n")
         ].join("\n")
       : `Reference answer: ${req.modelAnswer || "(none provided)"}`;
 
@@ -267,8 +286,10 @@ const LLM = (() => {
       `Question: ${req.question}`,
       gradingAnchor,
       `Candidate's answer: ${req.userAnswer}`,
-      "The complete answer is the transcript above.",
-      "An audio clip may also be attached. It is the closing portion of this answer; listen to it for what the transcript cannot carry. Do not treat it as the complete answer.",
+      ...(req.audioB64 ? [
+        "The complete answer is the transcript above.",
+        "An audio clip may also be attached. It is the closing portion of this answer; listen to it for what the transcript cannot carry. Do not treat it as the complete answer."
+      ] : []),
       "",
       isTechnical ? TECHNICAL_RUBRIC : BEHAVIORAL_RUBRIC,
       "",
@@ -316,7 +337,7 @@ const LLM = (() => {
           }],
           // Same grammar source and same prompt as the text-only path.
           grammar,
-          temperature: 0.2,
+          temperature: 0.0,
           max_tokens: 700,
           stream: false,
           // Required: without this llama-server may spend its completion
@@ -334,7 +355,7 @@ const LLM = (() => {
       const data = await postCompletion("evaluate", {
         prompt,
         grammar,
-        temperature: 0.2,
+        temperature: 0.0,
         n_predict: 700,
         stream: false
       });
@@ -599,17 +620,22 @@ const LLM = (() => {
     const hasContext = typeof req.candidateContext === "string" && req.candidateContext.trim().length > 0;
     const exclude = (req.excludeTopics && req.excludeTopics.length)
       ? `Do not repeat: ${req.excludeTopics.join(", ")}.` : "";
+    const priorTopics = (req.priorWeaknesses || []).map(w => w.topic).filter(Boolean);
+    const priorLine = priorTopics.length > 0
+      ? `At least one question must revisit a prior weak area. Weak topics from last session: ${priorTopics.join(", ")}. Do not force all questions onto these topics.`
+      : "";
 
     if (hasContext) {
       return [
         `Write ${req.count} interview questions about this candidate's experience. Name their specific projects or technologies.`,
         `Role: ${req.role}, ${req.level}, ${roundLabel}. Topics: ${req.topicTaxonomy || "backend engineering"}.`,
         exclude,
+        priorLine,
         "",
         req.candidateContext,
         "",
         "Output a JSON array. Each object: {\"question\": ..., \"topic\": ..., \"whatAGoodAnswerCovers\": [...], \"commonMistakes\": [...]}"
-      ].join("\n");
+      ].filter(Boolean).join("\n");
     }
 
     const exemplarLines = (req.exemplars || []).slice(0, 2).map((ex, i) =>
@@ -621,9 +647,11 @@ const LLM = (() => {
       `Role: ${req.role}, ${req.level}, ${roundLabel}.`,
       exemplarLines,
       exclude,
+      priorLine,
       "Output a JSON array. No extra text."
-    ].join("\n");
+    ].filter(Boolean).join("\n");
   }
+
 
   /**
    * Generate interview questions grounded in resume/JD, with grading anchor.
@@ -722,10 +750,11 @@ const LLM = (() => {
     if (!n || !h) return false;
     if (h.includes(n) || n.includes(h)) return true;
 
-    const nWords = n.split(/\s+/).filter(w => w.length > 3);
-    if (nWords.length === 0) return false;
+    const stopwords = new Set(["a", "an", "the", "and", "but", "if", "or", "because", "as", "what", "which", "this", "that", "these", "those", "then", "just", "so", "than", "such", "both", "through", "about", "for", "is", "of", "while", "during", "to", "be", "are", "was", "were", "been", "being", "have", "has", "had", "having", "do", "does", "did", "doing", "will", "would", "shall", "should", "can", "could", "may", "might", "must", "ought", "i", "you", "he", "she", "it", "we", "they", "me", "him", "her", "us", "them", "my", "your", "his", "their", "mine", "yours", "hers", "theirs", "myself", "yourself", "himself", "herself", "itself", "ourselves", "yourselves", "themselves"]);
+    let nWords = n.split(/\s+/).filter(w => w.length > 0 && !stopwords.has(w));
+    if (nWords.length === 0) nWords = n.split(/\s+/).filter(w => w.length > 0);
     const matches = nWords.filter(w => h.includes(w));
-    return (matches.length / nWords.length) >= 0.5;
+    return (matches.length / nWords.length) >= 0.6;
   }
 
   function areClaimsNearIdentical(claim1, claim2) {
@@ -916,7 +945,123 @@ const LLM = (() => {
     return { contradicts: false, priorClaim: null, currentClaim: null, confidence: "low" };
   }
 
-  return { evaluate, followup, recommend, generateQuestions, checkContradiction };
+  // --- Mid-answer slot check (interviewer interruption) ---
+
+  // Tight timeout: this competes with transcription for the GPU. If the model
+  // is busy, skip the interruption rather than stall the interview.
+  const SLOTCHECK_TIMEOUT_MS = 5000;
+
+  let slotcheckGrammarPromise = null;
+  function loadSlotcheckGrammar() {
+    if (!slotcheckGrammarPromise) {
+      if (typeof window === "undefined" && typeof require !== "undefined") {
+        const fs = require("fs");
+        const path = require("path");
+        slotcheckGrammarPromise = Promise.resolve(fs.readFileSync(path.join(__dirname, "../grammars/slotcheck.gbnf"), "utf8"));
+      } else {
+        slotcheckGrammarPromise = fetch(SLOTCHECK_GRAMMAR_PATH).then(res => {
+          if (!res.ok) throw new Error(`Failed to load ${SLOTCHECK_GRAMMAR_PATH}: ${res.status}`);
+          return res.text();
+        });
+      }
+    }
+    return slotcheckGrammarPromise;
+  }
+
+  function buildSlotcheckPrompt(question, partialTranscript, keySlot) {
+    return [
+      "You are checking whether a candidate's partial answer addresses a specific rubric slot.",
+      "",
+      "Key slot definitions:",
+      "- Result: A stated outcome, concrete impact, or measurable change. Not just 'and it worked out'.",
+      "- Tradeoff: Naming what was explicitly given up or sacrificed. Not just mentioning an alternative exists.",
+      "- Situation / Task / Action / Definition / Mechanism / Experience: Standard definitions apply.",
+      "",
+      `Question: ${question}`,
+      `Partial transcript (so far): ${partialTranscript}`,
+      "",
+      `Required slot: ${keySlot}`,
+      "",
+      "Decide whether the transcript has addressed the required slot or not.",
+      "The slot is \"addressed\" if the candidate has given substantive content for it, even if briefly.",
+      "The slot is \"missing\" if it has not been mentioned or only referenced in passing without substance.",
+      "Be strict: do not classify a benefit or mechanism as a tradeoff. Do not hallucinate.",
+      "",
+      "If the slot is addressed, you MUST quote the exact, literal words from the transcript that fulfill it as evidence.",
+      "If the slot is missing, leave addressed_evidence empty and put the slot name in the missing array.",
+      "Respond with a JSON object: {\"addressed_evidence\": [{\"slot\": \"...\", \"quote\": \"...\"}], \"missing\": [\"...\"]}.",
+      "The required slot must appear in exactly one array."
+    ].join("\n");
+  }
+
+  /**
+   * Check which rubric slots a partial transcript has addressed.
+   * Used mid-answer to decide whether to interrupt the candidate.
+   *
+   * Tight 5s timeout — if the GPU is busy with transcription, this throws
+   * and the caller skips the interruption. That is the correct behaviour:
+   * a late interruption is worse than none.
+   *
+   * @param {{question: string, partialTranscript: string, keySlot: string}} req
+   * @returns {Promise<{missing: boolean}>}
+   */
+  async function checkSlots(req) {
+    const grammar = await loadSlotcheckGrammar();
+    const prompt = buildSlotcheckPrompt(req.question, req.partialTranscript, req.keySlot);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SLOTCHECK_TIMEOUT_MS);
+
+    let res;
+    try {
+      res = await fetch(`${LLAMA_SERVER_URL}/completion`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          grammar,
+          temperature: 0.0,
+          n_predict: 400,
+          stream: false
+        }),
+        signal: controller.signal
+      });
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        throw new Error(
+          `checkSlots(): llama-server did not respond within ${SLOTCHECK_TIMEOUT_MS}ms — skipping interruption.`
+        );
+      }
+      throw new Error(`checkSlots(): could not reach llama-server — ${err.message}`);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!res.ok) {
+      throw new Error(`checkSlots(): llama-server /completion failed: ${res.status} ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    const parsed = parseCompletionContent("checkSlots", data);
+
+    const missingArr = Array.isArray(parsed.missing) ? parsed.missing : [];
+    let isMissing = missingArr.includes(req.keySlot);
+
+    if (Array.isArray(parsed.addressed_evidence)) {
+      const item = parsed.addressed_evidence.find(x => x.slot === req.keySlot);
+      if (item && item.quote) {
+        if (!isNearMatch(item.quote, req.partialTranscript)) {
+          isMissing = true;
+        } else {
+          isMissing = false;
+        }
+      }
+    }
+
+    return { missing: isMissing };
+  }
+
+  return { evaluate, followup, recommend, generateQuestions, checkContradiction, checkSlots };
 })();
 
 if (typeof window !== "undefined") window.LLM = LLM;

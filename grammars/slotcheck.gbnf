@@ -1,0 +1,18 @@
+# Grammar for LLM.checkSlots() in src/llm.js
+# Forces model to quote evidence for addressed slots
+
+root ::= (
+  "{" ws
+  "\"addressed_evidence\":" ws evidence-array "," ws
+  "\"missing\":" ws slot-array ws
+  "}"
+)
+
+evidence-array ::= "[]" | "[" ws evidence-obj (ws "," ws evidence-obj)* ws "]"
+evidence-obj ::= "{" ws "\"slot\":" ws string "," ws "\"quote\":" ws string ws "}"
+
+slot-array ::= "[]" | "[" ws string (ws "," ws string)* ws "]"
+
+string ::= "\"" char* "\""
+char ::= [^"\\\x7F\x00-\x1F] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
+ws ::= [ \t\n\r]*

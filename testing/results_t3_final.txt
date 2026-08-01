@@ -1,0 +1,30 @@
+=== checkSlots() Stop Point A: Standalone Test ===
+
+
+--- B1: Strong STAR, all slots covered ---
+  Key slot "Result" missing: false
+  Latency:   1417ms
+  Key slot "Result": ✓ correctly classified as ADDRESSED
+
+--- B2: Rambling, no Result — should trigger interruption ---
+  Key slot "Result" missing: true
+  Latency:   772ms
+  Key slot "Result": ✓ correctly classified as MISSING
+
+--- T1: Solid technical, all slots ---
+  Key slot "Tradeoff" missing: false
+  Latency:   1165ms
+  Key slot "Tradeoff": ✓ correctly classified as ADDRESSED
+
+--- T2: Definition only — key slot (Tradeoff) missing ---
+  Key slot "Tradeoff" missing: false
+  Latency:   1042ms
+
+--- T3: Has experience but no mechanism or tradeoff ---
+  Key slot "Tradeoff" missing: false
+  Latency:   1051ms
+
+=== Summary ===
+Key slot accuracy: 3/5
+Latency — avg: 1089ms, max: 1417ms
+=== End ===

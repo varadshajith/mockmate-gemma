@@ -32,6 +32,32 @@ python3 -m http.server 8000
 
 Then open <http://localhost:8000>.
 
+## Server startup
+
+Three local processes are required. Start them in this order:
+
+```bash
+# 1. Inference model (Gemma 4 — GPU)
+llama-server \
+  -m ~/models/gemma-4-E4B-it-Q4_0.gguf \
+  --mmproj ~/models/mmproj-gemma-4-E4B-it-Q8_0.gguf \
+  -ngl 99 --flash-attn on -c 16384 \
+  --cache-type-k q8_0 --cache-type-v q8_0 \
+  --port 8080 --host 127.0.0.1
+
+# 2. Embedding model (bge-small — CPU, deliberate)
+#    -ngl 0 is intentional: keeps all VRAM for Gemma.
+#    CPU inference is 27ms at 50 entries, 51ms at 200 — acceptable.
+#    Do NOT add -ngl here without re-measuring peak VRAM under joint load.
+llama-server \
+  -m ~/models/bge-small-en-v1.5-q8_0.gguf \
+  --pooling mean --embedding \
+  --port 8081 --host 127.0.0.1 -ngl 0
+
+# 3. Audio sidecar
+python3 sidecar/server.py
+```
+
 ## Rounds
 
 Two rounds, both spoken: **Behavioral** and **Technical**. Internally they

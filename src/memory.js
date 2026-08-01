@@ -14,9 +14,14 @@ const InterviewMemory = (() => {
   const REQUEST_TIMEOUT_MS = 15000;
 
   function parseEmbeddingResponse(data) {
-    const vector = Array.isArray(data?.embedding)
-      ? data.embedding
-      : data?.data?.[0]?.embedding;
+    let vector;
+    if (Array.isArray(data) && data[0]?.embedding) {
+      vector = Array.isArray(data[0].embedding[0]) ? data[0].embedding[0] : data[0].embedding;
+    } else {
+      vector = Array.isArray(data?.embedding)
+        ? data.embedding
+        : data?.data?.[0]?.embedding;
+    }
 
     if (!Array.isArray(vector) || vector.length === 0 || !vector.every(Number.isFinite)) {
       throw new Error("embedText(): embedding server response contained no valid embedding vector.");
@@ -145,6 +150,7 @@ const InterviewMemory = (() => {
     const queryEmbedding = await embedText(query);
 
     return getEntries()
+      .filter((entry) => !options.roleId || entry.roleId === options.roleId)
       .map((entry) => ({ ...entry, similarity: cosineSimilarity(queryEmbedding, entry.embedding) }))
       .filter((entry) => entry.similarity !== null && entry.similarity >= threshold)
       .sort((left, right) => right.similarity - left.similarity)

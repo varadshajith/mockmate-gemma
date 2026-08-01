@@ -17,6 +17,7 @@ const LocalAudio = (() => {
   let readyTimer = null;
   let drainTimer = null;
   let onTranscript = null;
+  let onPartialTranscript = null;
   let onEvent = null;
   let transcriptChunks = new Map();
   let speaking = false;
@@ -54,10 +55,12 @@ const LocalAudio = (() => {
 
   /**
    * Start local transcription.
-   * @param {(transcript: string) => void} transcriptCallback full transcript so far
+   * @param {(transcript: string) => void} transcriptCallback finalized transcript so far
    * @param {(event: object) => void} eventCallback sidecar status/error events
+   * @param {(partial: {finalized: string, committed: string, tentative: string}) => void} partialTranscriptCallback
+   * optional live transcript updates; never used to submit or evaluate an answer
    */
-  function startListening(transcriptCallback, eventCallback) {
+  function startListening(transcriptCallback, eventCallback, partialTranscriptCallback) {
     if (state !== "idle") {
       if (eventCallback) {
         eventCallback({
@@ -72,6 +75,7 @@ const LocalAudio = (() => {
     state = "connecting";
     onTranscript = transcriptCallback;
     onEvent = eventCallback || null;
+    onPartialTranscript = partialTranscriptCallback || null;
     transcriptChunks = new Map();
 
     const ws = new WebSocket(SIDECAR_URL);
@@ -112,6 +116,24 @@ const LocalAudio = (() => {
       if (event.type === "transcript") {
         transcriptChunks.set(event.chunkIndex, event.text);
         if (onTranscript) onTranscript(joinedTranscript());
+        if (onPartialTranscript) {
+          onPartialTranscript({ finalized: joinedTranscript(), committed: "", tentative: "" });
+        }
+        return;
+      }
+
+      if (event.type === "transcript_partial") {
+        if (typeof event.committed !== "string" || typeof event.tentative !== "string") {
+          emitEvent({ type: "error", code: "bad_message", message: "Invalid partial transcript from local sidecar." });
+          return;
+        }
+        if (onPartialTranscript) {
+          onPartialTranscript({
+            finalized: joinedTranscript(),
+            committed: event.committed,
+            tentative: event.tentative,
+          });
+        }
         return;
       }
 

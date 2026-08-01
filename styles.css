@@ -1794,6 +1794,17 @@ button {
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
+.live-transcript-preview {
+  margin: -4px 20px 0;
+  line-height: 1.6;
+  min-height: 1.6em;
+  color: var(--text-main);
+}
+
+.live-transcript-tentative {
+  color: var(--text-muted);
+}
+
 .editor-footer {
   display: flex;
   justify-content: space-between;

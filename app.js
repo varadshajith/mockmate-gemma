@@ -2016,14 +2016,14 @@ const INTERRUPTION_LINES = {
   Result: "Sorry to cut in — what was the outcome?",
   Tradeoff: "Let me stop you there — what did you give up?"
 };
-const INTERRUPT_AFTER_SECONDS = 15;
+const INTERRUPT_AFTER_SECONDS = 75;
 
 async function maybeInterrupt() {
   const session = APP_STATE.currentInterview;
   if (!session || session.interruptionsEnabled === false || session.interruptionFired) return;
 
   const text = session.liveCommittedText || "";
-  if (text.split(/\s+/).length <= 20) return;
+  if (text.split(/\s+/).length <= 120) return;
 
   const now = Date.now();
   if (!session.lastTranscriptPartialTime || now - session.lastTranscriptPartialTime > 3000) return;

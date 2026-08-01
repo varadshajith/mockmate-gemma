@@ -13,7 +13,6 @@
     }
   },
   "domains": {
-
     "backend": [
       {
         "id": "backend_easy_1",
@@ -124,7 +123,6 @@
         }
       }
     ],
-
     "frontend": [
       {
         "id": "frontend_easy_1",
@@ -235,7 +233,6 @@
         }
       }
     ],
-
     "genai": [
       {
         "id": "genai_easy_1",
@@ -346,7 +343,6 @@
         }
       }
     ],
-
     "hr": [
       {
         "id": "hr_easy_1",
@@ -457,7 +453,6 @@
         }
       }
     ],
-
     "system_design": [
       {
         "id": "sysdesign_easy_1",
@@ -565,6 +560,1106 @@
           "mechanism_missing": "How would messages actually get from one user to another across different servers?",
           "tradeoff_missing": "Where's the actual bottleneck going to be, and what's the cost of fixing it?",
           "experience_missing": "Have you built anything with real-time connections at any scale, even small?"
+        }
+      }
+    ],
+    "full_stack": [
+      {
+        "id": "full_stack_easy_1",
+        "question": "What's the actual difference between server-side rendering and client-side rendering, and when would you pick one over the other?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "So with server-side rendering the server builds the actual HTML and sends it down already filled in, so the user sees content fast and it's good for SEO since crawlers get real content right away. Client-side rendering ships basically an empty page plus a JS bundle, then the browser builds everything after it loads, so first load feels slower but after that it's snappier since it's not round-tripping to the server for every single page. We went with SSR for our marketing pages because Google needed to actually index them, but kept the dashboard client-side since it's behind login and SEO doesn't matter there at all.",
+          "score_6": "SSR renders the page on the server and sends back real HTML, CSR renders everything in the browser using JavaScript after the page loads. SSR tends to be better for SEO since crawlers see actual content, and CSR feels faster once the app is loaded and running. We used a framework that handled SSR for some of our public pages, and kept the rest client-rendered.",
+          "score_3": "SSR is server side rendering and CSR is client side, one renders on the server and one renders in the browser. I know SEO is a reason people pick SSR sometimes but I'm a little fuzzy on the actual details of how that works or when you'd need it."
+        },
+        "probes": {
+          "definition_missing": "What do you mean when you say the server 'renders' the page — what's actually happening?",
+          "mechanism_missing": "Walk me through what the browser receives first in each case.",
+          "tradeoff_missing": "When would SSR actually hurt you more than help?",
+          "experience_missing": "Have you actually built something using one of these yourself?"
+        }
+      },
+      {
+        "id": "full_stack_easy_2",
+        "question": "When would you reach for GraphQL instead of a plain REST API?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "REST gives you fixed endpoints, so if your frontend needs data from three different resources you're either making three separate calls or the backend has to build a custom endpoint just for that one screen. GraphQL lets the frontend ask for exactly the fields it needs in a single request, which is great when you've got different clients like mobile and web wanting different shapes of the same underlying data. We moved a mobile app over to GraphQL because the REST responses were huge and mobile only actually needed a handful of fields, so it cut payload size a lot. The tradeoff is caching gets a lot harder since it's not simple URL-based caching anymore.",
+          "score_6": "GraphQL lets you ask for specific fields instead of getting a fixed response shape like you do with REST, so you avoid over-fetching data you don't need. It's especially useful when different clients need different pieces of the same underlying data, like mobile versus web. We used it on one project mainly for the mobile app since bandwidth mattered more there and the REST payloads were way bigger than we actually needed on that screen.",
+          "score_3": "GraphQL is more flexible than REST because you can query for what you want, REST just gives you a fixed response every time no matter what. I think it's supposed to be better for mobile but I haven't really used it enough to explain why in detail."
+        },
+        "probes": {
+          "definition_missing": "What's actually different about how a GraphQL request is structured compared to REST?",
+          "mechanism_missing": "How does the server know what to send back when the client asks for specific fields?",
+          "tradeoff_missing": "What gets harder once you introduce GraphQL into your stack?",
+          "experience_missing": "Did you set up a GraphQL API yourself or just consume one?"
+        }
+      },
+      {
+        "id": "full_stack_moderate_1",
+        "question": "For a small team building a new product, would you start with a monolith or microservices, and why?",
+        "shape": "Technical",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-90",
+        "reference_answers": {
+          "score_9": "Honestly for a small team I'd start with a monolith almost every time. Microservices sound impressive but they add a ton of operational overhead — network calls where you used to have function calls, distributed tracing, separate deploys, service discovery — and a small team just doesn't have the bandwidth to manage all that while also trying to find product-market fit. We started a project as a monolith, kept it modular internally with clear boundaries between the pieces, and only pulled one part out as its own service later once it genuinely had different scaling needs than the rest. Splitting too early just means paying microservices tax before you even know what your service boundaries should actually be.",
+          "score_6": "For a small team a monolith is usually easier to manage since you don't have to deal with multiple deployments and services talking to each other over the network. Microservices tend to make more sense later once the team and the codebase get bigger and different parts need to scale differently. We kept things as one codebase early on for that reason.",
+          "score_3": "Monolith is simpler for small teams and microservices are more complex, so I think it depends on team size and how big the project is going to get eventually. I haven't personally set up microservices myself so I'm not totally sure of all the details involved."
+        },
+        "probes": {
+          "definition_missing": "What actually makes something a monolith versus microservices — where's the line?",
+          "mechanism_missing": "What operational stuff changes once you split into services?",
+          "tradeoff_missing": "When would starting with microservices actually be the right call?",
+          "experience_missing": "Have you actually worked on splitting a monolith apart, or building microservices from scratch?"
+        }
+      },
+      {
+        "id": "full_stack_moderate_2",
+        "question": "Tell me about a time something broke because the frontend and backend disagreed about how data should look.",
+        "shape": "STAR",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "We had a bug where the frontend expected a date field as a string but the backend changed the API to return a timestamp integer during a refactor, and nobody updated the shared types doc. Dates on the order history page started showing as 'Invalid Date' for everyone. I noticed it during a demo, pulled up the network tab, saw the raw response, and figured out the type had changed underneath us. I fixed the frontend parsing that same day, but the bigger thing I pushed for afterward was a shared types package both sides import from, so a backend change like that would actually break the build instead of silently breaking in production.",
+          "score_6": "Yeah we had an issue where the backend changed a field type during a refactor and the frontend broke because it expected something different than what it actually got back from the API. I noticed it during testing, we fixed the parsing on our side once we figured out exactly what had changed, and it went out as a small patch fairly quickly after that once we confirmed it.",
+          "score_3": "Something like that happened once, there was a mismatch between what the frontend expected and what the backend sent, and it got fixed eventually after someone looked into it. I wasn't super involved in the actual debugging part of it though."
+        },
+        "probes": {
+          "situation_missing": "Set the scene — what was actually going wrong and how did you find out?",
+          "task_missing": "What were you responsible for fixing in that moment?",
+          "action_missing": "What did you personally do to track it down and fix it?",
+          "result_missing": "How do you know it's actually fixed, and did anything change going forward?"
+        }
+      },
+      {
+        "id": "full_stack_hard_1",
+        "question": "How do you handle authentication across a frontend and backend that live on different domains?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "The classic pain point is cookies — if your frontend's on app.example.com and your API's on api.example.com, or a totally different domain, browsers get picky about sending cookies cross-site because of SameSite rules. You've got two real options: use a token like a JWT sent as an Authorization header instead of relying on cookies, or configure cookies properly with SameSite=None plus Secure and set up CORS to allow credentials. We went with short-lived JWTs in memory plus a refresh token in an httpOnly cookie, since storing the access token in localStorage is an XSS risk if any script on the page gets compromised. The tradeoff is you need refresh logic so users don't get logged out constantly.",
+          "score_6": "You usually need to deal with CORS settings and cookie configuration since the domains are different from each other, and browsers can be picky about that by default. We ended up using tokens instead of relying purely on cookies to get authentication working across the two domains cleanly. It took some trial and error to get the CORS headers and credentials settings right on both sides.",
+          "score_3": "Cross domain auth is tricky, you need CORS and probably tokens or something similar, we had to configure that at some point on a project but I don't remember the specifics of how it was actually set up under the hood."
+        },
+        "probes": {
+          "definition_missing": "What actually breaks by default when frontend and backend are on different domains?",
+          "mechanism_missing": "Walk me through what happens on each request when you're using a token-based approach.",
+          "tradeoff_missing": "What's the security tradeoff between storing a token in localStorage versus a cookie?",
+          "experience_missing": "Have you actually set this up yourself, or was it already configured when you joined?"
+        }
+      },
+      {
+        "id": "full_stack_hard_2",
+        "question": "Say a user clicks 'like' on a post and the UI updates instantly, but the backend request actually fails. How do you handle that?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "That's the classic optimistic update problem — you update the UI immediately assuming success because waiting for the round trip feels sluggish, but now the UI is lying to the user if the request fails. The fix is you keep the previous state around before the update, fire the request, and if it errors out you roll the UI back to what it actually was and show something like a toast explaining it didn't go through. We had this exact bug on a like button where a flaky network meant users would like something, see it update, then refresh and it'd be gone with zero explanation. Adding rollback plus a visible error made the failure obvious instead of silently reverting.",
+          "score_6": "You need to roll back the UI change if the backend request fails, otherwise the user thinks it worked when it actually didn't go through at all. We had a bug like that once on a feature, users would tap it, see the change, then it would just quietly disappear on refresh. We added error handling afterward to revert the state properly whenever the request came back as a failure.",
+          "score_3": "If the backend fails you should probably show an error or undo the change somehow, we ran into that kind of issue before on a project but I wasn't the one who ended up fixing it, someone else on the team handled that part of it."
+        },
+        "probes": {
+          "definition_missing": "What does 'optimistic update' actually mean here, in your own words?",
+          "mechanism_missing": "Walk me through the sequence of what happens on click, on success, and on failure.",
+          "tradeoff_missing": "What's the risk if you don't handle the rollback properly?",
+          "experience_missing": "Have you actually built or fixed an optimistic UI update yourself?"
+        }
+      }
+    ],
+    "data_analyst": [
+      {
+        "id": "data_analyst_easy_1",
+        "question": "What's the difference between an INNER JOIN and a LEFT JOIN, and when would using the wrong one quietly mess up your numbers?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "An inner join only keeps rows where there's a match in both tables, so if a customer has zero orders they just vanish from the result entirely. A left join keeps every row from the left table regardless of a match, filling in nulls where there's nothing on the right side. I got burned by this early on doing a customers-to-orders join with an inner join for a report on total customers, and it silently dropped anyone who hadn't ordered yet, which made our customer count look way lower than it actually was until someone caught it in review.",
+          "score_6": "Inner join only returns rows that match in both tables, left join keeps all rows from the left table even if there's no match on the right side. If you use inner join by mistake you can silently lose rows you actually wanted to keep in the result, which is easy to miss unless you're checking row counts. I've run into that kind of mismatch before when joining two tables together on a report and the totals looked off.",
+          "score_3": "Inner join is stricter and left join keeps more rows even without a match, I know the difference matters a lot for the final results but I mix them up sometimes when writing queries so I usually just try both and see which output actually looks right for what I need."
+        },
+        "probes": {
+          "definition_missing": "What exactly happens to unmatched rows in each type of join?",
+          "mechanism_missing": "Walk me through what SQL is doing under the hood to produce the joined result.",
+          "tradeoff_missing": "When would picking the wrong join type actually change your conclusions?",
+          "experience_missing": "Have you actually caught a bug caused by using the wrong join?"
+        }
+      },
+      {
+        "id": "data_analyst_easy_2",
+        "question": "What makes a dashboard metric actually useful versus just a vanity number?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "A vanity metric goes up and to the right no matter what you do, like total signups, so it never tells you if something's actually working or not. A useful metric is tied to an action someone can take, like activation rate or week-two retention, something that moves when you actually change the product. We had a dashboard full of cumulative totals that always looked great in every meeting, but nobody could use it to decide anything, so I pushed to add retention cohorts instead, which actually showed when a feature launch helped or hurt.",
+          "score_6": "A vanity metric just goes up over time and doesn't tell you much on its own, like total signups ever, since it never really goes down. A useful metric is one that's actionable, something you can actually move by doing something differently in the product. We had some dashboards that were mostly cumulative vanity numbers and I think adding more actionable ones would genuinely help the team make decisions.",
+          "score_3": "Vanity metrics look good but don't mean much, useful ones actually help you decide things, I think that's roughly the main difference but I haven't built a dashboard from scratch myself, so I'm mostly going off what I've seen other people on the team build before."
+        },
+        "probes": {
+          "definition_missing": "What actually makes a number 'vanity' versus 'actionable' — what's the test?",
+          "mechanism_missing": "Walk me through how you'd figure out if a metric is actionable before building it.",
+          "tradeoff_missing": "What's the risk of a dashboard full of vanity metrics?",
+          "experience_missing": "Have you built or redesigned a dashboard yourself?"
+        }
+      },
+      {
+        "id": "data_analyst_moderate_1",
+        "question": "How would you actually define 'active user' for a product, and why is that harder than it sounds?",
+        "shape": "Technical",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-90",
+        "reference_answers": {
+          "score_9": "It sounds simple but the definition changes what every downstream number means. Does opening the app count, or does it need to be a meaningful action like posting or completing a task? Over what window — daily, weekly, thirty days? We had a product where 'active' just meant app open, and it made a broken push notification loop look like engagement was fine, when really people were just getting bounced back in without doing anything. I pushed for redefining it as at least one core action per session, and once we did that the real drop-off after onboarding became obvious instead of hidden behind inflated open counts.",
+          "score_6": "You need to define what counts as an action, like just opening the app versus actually doing something meaningful in it, and pick a time window like daily or weekly active. If the definition is too loose the number can look good even when engagement isn't actually there. We had that issue on a project once where the metric didn't match what was really happening.",
+          "score_3": "Active user usually means someone who used the app recently, you just need to pick a time window I guess, like daily or weekly, though I know there's more nuance to it than that in practice depending on the product and what counts as a real action."
+        },
+        "probes": {
+          "definition_missing": "What's the actual risk of defining 'active' too loosely?",
+          "mechanism_missing": "Walk me through how a bad definition could distort a real number.",
+          "tradeoff_missing": "What's the tradeoff between a strict definition and a loose one?",
+          "experience_missing": "Have you actually had to define or redefine a metric like this yourself?"
+        }
+      },
+      {
+        "id": "data_analyst_moderate_2",
+        "question": "Tell me about a time a stakeholder wanted a metric that would've been misleading. What did you do?",
+        "shape": "STAR",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "A product manager wanted a headline number of 'total downloads' for a leadership deck, but our app had a known issue where uninstall-reinstall cycles counted as new downloads every time, so the number was massively inflated and didn't reflect real user growth. I was the one pulling the data for the deck, so instead of just handing over the raw number I flagged the double-counting issue directly to the PM before the meeting, showed the gap between downloads and actual unique active devices, and proposed we present both numbers side by side with a note on the discrepancy. Leadership ended up asking follow-up questions about retention instead of just downloads, which was actually a more useful conversation.",
+          "score_6": "A PM wanted a big download number for a presentation to leadership, but I knew it was inflated because of reinstalls being counted as brand new downloads every time. I mentioned the issue to them before the meeting happened, and we ended up showing a more accurate active-device number alongside it instead of just the raw inflated total by itself.",
+          "score_3": "Something like that happened once, a stakeholder wanted a number that wasn't totally accurate for a presentation, and I brought it up before it actually got presented to anyone. We ended up adjusting what was shown in the final version, though I don't remember all the specifics of the exact numbers involved."
+        },
+        "probes": {
+          "situation_missing": "Set the scene — what number were they asking for and why was it misleading?",
+          "task_missing": "What was your role in preparing that number or presentation?",
+          "action_missing": "What did you actually say or do to address it?",
+          "result_missing": "What happened after you raised it — did the final number change?"
+        }
+      },
+      {
+        "id": "data_analyst_hard_1",
+        "question": "You run an A/B test and it comes back statistically significant. Why might that still not mean what people think it means?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "Statistical significance just means the difference probably isn't random noise, it says nothing about whether the difference is actually big enough to matter or whether it'll hold up outside the test. With enough traffic you can get a significant result on a tiny effect size that's basically meaningless for the business. There's also the multiple comparisons problem — checking five metrics at once, one will likely look significant just by chance, so you need to correct for that. We had a test where a button color 'won' with p under 0.05, but the actual lift was under one percent and didn't replicate the next quarter, which taught the team to look at effect size, not just the p-value.",
+          "score_6": "Significant doesn't mean the effect is actually big, it just means it's probably not random chance, so you still need to look at the actual size of the effect and whether it matters practically for the business. Also if you're testing a bunch of different metrics at once you can get a false positive just from checking too many things, so you have to correct for that somehow.",
+          "score_3": "Statistically significant doesn't always mean it's a real or important result, there's some nuance around sample size and p-values that I know matters, but I'd have to look up the specifics again to explain it properly since I don't fully remember the details of why that happens."
+        },
+        "probes": {
+          "definition_missing": "What does a p-value actually tell you, and what doesn't it tell you?",
+          "mechanism_missing": "Walk me through how effect size and significance are two different things.",
+          "tradeoff_missing": "What's the risk of checking a lot of metrics in the same test?",
+          "experience_missing": "Have you actually run or analyzed an A/B test yourself?"
+        }
+      },
+      {
+        "id": "data_analyst_hard_2",
+        "question": "What is Simpson's paradox, and why does it matter when you're looking at aggregate versus segmented data?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "Simpson's paradox is when a trend in the overall aggregate data reverses or disappears once you split into subgroups, usually because the subgroups have very different sizes or mixes. A classic case is a treatment looking better overall but actually worse in every single subgroup, because one subgroup got way more of the successful cases assigned to it. We saw a version of this comparing conversion rate between two marketing channels — channel A looked better overall, but once we segmented by device type, channel B actually won on both mobile and desktop, because channel A got a disproportionate share of an easier-to-convert segment. It's a good reminder to check if a hidden variable is driving the aggregate number.",
+          "score_6": "It's when the overall trend in the data is different from the trend you see once you break it into groups, usually because the groups aren't the same size or mix as each other. It matters because looking only at the aggregate number can lead you to a completely wrong conclusion about what's actually going on. I've seen something similar happen once when comparing two groups that turned out to have very different underlying compositions.",
+          "score_3": "It's some kind of statistics thing where the overall numbers can be misleading compared to the smaller groups underneath them, I've heard the term before but I don't fully remember the exact mechanism behind why it happens in practice, I'd need to look it up again."
+        },
+        "probes": {
+          "definition_missing": "Can you define what's actually happening in Simpson's paradox, step by step?",
+          "mechanism_missing": "Walk me through a concrete example of how the reversal happens.",
+          "tradeoff_missing": "Why does this matter for how you'd present a metric to stakeholders?",
+          "experience_missing": "Have you actually run into this in your own data work?"
+        }
+      }
+    ],
+    "data_scientist": [
+      {
+        "id": "data_scientist_easy_1",
+        "question": "Why do you need to scale features before feeding them into a lot of machine learning models?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "A lot of models are distance-based or gradient-based under the hood, so if one feature is in the range of thousands like income and another is between zero and one like a ratio, the bigger-scale feature just dominates the math even if it's not actually more important. Gradient descent also converges way slower and less stably when features are on wildly different scales. I hit this on a project using k-nearest neighbors where a raw dollar-amount column was drowning out three other features that mattered more, and once I standardized everything the model's actual accuracy went up noticeably.",
+          "score_6": "Some models like KNN or anything using gradient descent are sensitive to feature scale, so a feature with big numbers can dominate the distance calculation even if it's not actually more important than the others. Scaling puts everything on a similar range so the model treats features more fairly. I've had to apply scaling before training a model on a project.",
+          "score_3": "You scale features so the model works better basically, some algorithms need it more than others and I know it's a standard preprocessing step, but I don't remember exactly why it matters for each specific type of model or which ones actually need it."
+        },
+        "probes": {
+          "definition_missing": "What actually goes wrong mathematically if you skip scaling?",
+          "mechanism_missing": "Which kinds of models actually need scaling versus which ones don't care?",
+          "tradeoff_missing": "What's the tradeoff or risk of scaling incorrectly, like scaling after the train-test split versus before?",
+          "experience_missing": "Have you actually hit a bug or bad result caused by unscaled features?"
+        }
+      },
+      {
+        "id": "data_scientist_easy_2",
+        "question": "What's the actual difference between overfitting and underfitting, and how do you tell which one you're looking at?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "Overfitting is when the model basically memorizes the training data, including its noise, so training accuracy looks great but it falls apart on anything new. Underfitting is the opposite, the model's too simple to even capture the pattern in the training data, so both training and validation performance are bad. The tell is the gap — if training score is way higher than validation score, that's overfitting, if both are mediocre together, that's underfitting. I had a model on a project that hit ninety-eight percent training accuracy but dropped to sixty on validation, which was a pretty obvious overfitting signal once I actually plotted the two curves side by side.",
+          "score_6": "Overfitting is when the model does great on training data but bad on new data because it basically memorized the training set instead of learning the actual underlying pattern. Underfitting is when it does poorly on both because the model is too simple for the problem it's trying to solve. You can usually tell which one is happening by comparing training accuracy against validation accuracy directly.",
+          "score_3": "Overfitting is when the model is too specific to the training data and underfitting is when it's too simple, I know the general idea but I'd need to look at an actual example to explain the difference clearly with numbers."
+        },
+        "probes": {
+          "definition_missing": "What's actually happening inside the model when it overfits?",
+          "mechanism_missing": "How would you diagnose which one is happening just from the numbers?",
+          "tradeoff_missing": "What's the fix for each — what would you actually change?",
+          "experience_missing": "Have you personally debugged an overfitting or underfitting model?"
+        }
+      },
+      {
+        "id": "data_scientist_moderate_1",
+        "question": "When would you pick a tree-based model like XGBoost over a simple linear model, and what do you give up by doing that?",
+        "shape": "Technical",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-90",
+        "reference_answers": {
+          "score_9": "Tree-based models handle non-linear relationships and feature interactions automatically without you having to hand-engineer them, and they don't care much about feature scaling or messy distributions, so they usually just perform better out of the box on tabular data with complex patterns. What you give up is interpretability — a linear model's coefficients tell you directly how each feature affects the prediction, while a gradient-boosted tree is much more of a black box unless you bring in something like SHAP values afterward. On a churn project, we started with logistic regression because stakeholders wanted to understand exactly why someone was flagged, and only moved to XGBoost once we had a SHAP-based explanation layer to keep that same level of transparency.",
+          "score_6": "Tree-based models can capture non-linear patterns and interactions between features better than a simple linear model can on their own, so they tend to perform better on complex tabular data. The tradeoff is they're harder to interpret compared to a linear model where you can just look at the coefficients directly. I've used XGBoost on a project mainly for the better accuracy.",
+          "score_3": "XGBoost is usually more accurate than linear models but harder to explain to people, so it depends on whether you need interpretability or just want the best performance for the task at hand, and I think it also depends a bit on how much data you actually have."
+        },
+        "probes": {
+          "definition_missing": "What specifically can a tree-based model capture that a linear model can't?",
+          "mechanism_missing": "How does a model like XGBoost actually build its predictions internally?",
+          "tradeoff_missing": "What do you lose in terms of interpretability, concretely?",
+          "experience_missing": "Have you actually compared both types of models on the same dataset yourself?"
+        }
+      },
+      {
+        "id": "data_scientist_moderate_2",
+        "question": "Tell me about a time a model's performance dropped after deployment. What did you do to figure out why?",
+        "shape": "STAR",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "We had a fraud detection model that performed well in testing but its precision dropped noticeably about a month after we shipped it. I was responsible for monitoring the model's live metrics, so once I saw the drop in the dashboard I pulled a sample of recent predictions and compared the feature distributions against what the model was trained on. It turned out a new payment provider had been added that produced transaction amounts in a completely different currency format, which was quietly breaking one of our numeric features. I added a data validation step to catch format mismatches before they hit the model, and precision recovered within a few days once that fix went out.",
+          "score_6": "We had a model that got worse after it was deployed for a while, so I looked into the input data to see if something had actually changed compared to what it was trained on. It turned out the incoming data had shifted somehow, so we fixed the pipeline that was feeding it and performance improved again pretty soon after that fix went out.",
+          "score_3": "Something like that happened once, a model's accuracy dropped after launch and someone looked into the data to figure out what was going on with it. It got resolved eventually after some digging, though I wasn't the one doing most of the actual investigation on that one."
+        },
+        "probes": {
+          "situation_missing": "Set the scene — what model was this and what exactly changed?",
+          "task_missing": "What was your role in noticing or investigating the drop?",
+          "action_missing": "Walk me through what you actually did to find the cause.",
+          "result_missing": "How did you confirm it was fixed, and what changed afterward?"
+        }
+      },
+      {
+        "id": "data_scientist_hard_1",
+        "question": "You're designing an A/B test for a new recommendation algorithm. What confounders would worry you, and how would you control for them?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "The biggest one is that user behavior isn't stationary, so running the test across a weekend versus weekdays or during a holiday sale, seasonality alone can swamp the actual effect of the algorithm. Another is network effects or spillover — if users can see each other's recommendations, your control and treatment groups aren't as independent as you'd assume. I'd control for the time confound by randomizing at the user level and running the test long enough to cover a full weekly cycle, not just a few days. On a past project we also stratified by user tenure, since new users behave very differently, and without that split the aggregate result hid that the new algorithm only helped new users.",
+          "score_6": "Things like seasonality or day-of-week effects could mess with the results if the test doesn't run long enough to average all of that out. You'd want to randomize properly at the user level and run it for a full cycle like a week or two to avoid those effects skewing things unfairly. Stratifying by user type, like new versus returning, is also something I'd probably consider doing.",
+          "score_3": "Confounders like time of year or user type could throw off the results somehow, you'd want to control for those in some way, though I'd need to think more carefully about the exact setup for a specific test like this one before saying anything more precise."
+        },
+        "probes": {
+          "definition_missing": "What specifically makes a confounder dangerous in an A/B test like this?",
+          "mechanism_missing": "Walk me through how randomization actually protects you against these confounders.",
+          "tradeoff_missing": "What's the tradeoff between running a longer test versus getting results faster?",
+          "experience_missing": "Have you actually designed an A/B test yourself, end to end?"
+        }
+      },
+      {
+        "id": "data_scientist_hard_2",
+        "question": "What is feature leakage, and how would you actually catch it before it wrecks your model's real-world performance?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "Feature leakage is when information that wouldn't actually be available at prediction time sneaks into your training data, so the model looks amazing in testing but falls apart in production because that information isn't there yet. A classic example is including a 'time to resolution' field when predicting whether a ticket will be escalated, since that field only exists after the ticket is closed. To catch it, I'd look for suspiciously perfect validation scores, and check each feature's timestamp against the prediction moment. On one project we found a leaking feature because one column had a correlation with the target that was almost too good to be true, and it turned out to be calculated using the outcome itself.",
+          "score_6": "It's when data that wouldn't actually be available when you're making a real prediction ends up in your training set somehow, which makes the model look better than it actually is during testing. You can catch it by checking if any feature is derived from the target or from something that happens after the prediction point, and by generally being suspicious of unusually high accuracy scores.",
+          "score_3": "Feature leakage is when the model accidentally sees information it shouldn't have during training, and it makes the results look too good to be true. I know it's a real problem in practice, but I haven't personally had to go hunt one down myself yet on any project I've worked on."
+        },
+        "probes": {
+          "definition_missing": "Can you define what makes something 'leaked' versus a normal legitimate feature?",
+          "mechanism_missing": "Walk me through how you'd audit a dataset to find a leaking feature.",
+          "tradeoff_missing": "What's the risk if leakage makes it all the way to production?",
+          "experience_missing": "Have you actually found or fixed a leakage issue yourself?"
+        }
+      }
+    ],
+    "agentic_ai": [
+      {
+        "id": "agentic_ai_easy_1",
+        "question": "What does 'tool use' actually mean for an LLM agent, and why can't the model just do everything on its own?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "Tool use means the model can call out to something external, like a search API, a calculator, or a database query, instead of trying to generate the answer purely from what it memorized during training. The model itself can't reliably do exact math or know what happened five minutes ago, so tools give it a way to get real, current, verifiable information instead of guessing. We built an agent that needed live stock prices, and without a tool call it would just hallucinate a plausible-sounding number instead of actually being right.",
+          "score_6": "Tool use is when the model can call external functions like search or a calculator instead of relying only on what it learned during training. This helps because the model alone can't access live data or do precise calculations reliably on its own. We used tool calls in our agent to fetch real data instead of letting the model guess it.",
+          "score_3": "Tool use means the agent can use outside tools to help answer things, it's needed because the model can't do everything reliably by itself, though I haven't set up tool calling myself yet in a real project, so I'm mostly going off what I've read about it."
+        },
+        "probes": {
+          "definition_missing": "What's actually happening in the request-response cycle when the model calls a tool?",
+          "mechanism_missing": "Walk me through what the model sees before and after a tool call.",
+          "tradeoff_missing": "What's the risk if you give an agent a tool it doesn't need?",
+          "experience_missing": "Have you actually implemented a tool-calling agent yourself?"
+        }
+      },
+      {
+        "id": "agentic_ai_easy_2",
+        "question": "What's a planning loop like ReAct actually doing, in plain terms?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "ReAct stands for reason plus act, and the idea is the model alternates between thinking out loud about what it should do next and actually taking an action, like calling a tool, then it looks at the result and reasons again before the next step. Instead of trying to answer in one shot, it breaks the task into small loops of thought, action, observation, repeated until it decides it's done. We used this pattern for a research agent that needed to search, read a result, decide if it answered the question, and search again if not, rather than committing to a single search query upfront.",
+          "score_6": "ReAct is a pattern where the model reasons about what to do, takes an action like calling a tool, then looks at the result and reasons again before deciding the next step. It repeats that loop instead of trying to answer everything in one single shot. We used something similar for an agent that needed multiple search steps before it could actually answer confidently.",
+          "score_3": "ReAct is some kind of loop where the model thinks and then acts, I know it's used for agents that need multiple steps to solve something, but I'd need to look at the actual pattern again to explain it in more precise detail than that."
+        },
+        "probes": {
+          "definition_missing": "Can you walk through the actual steps in a ReAct loop, one at a time?",
+          "mechanism_missing": "What does the model actually see between one loop iteration and the next?",
+          "tradeoff_missing": "What goes wrong if the loop doesn't have a stopping condition?",
+          "experience_missing": "Have you built or debugged a ReAct-style agent yourself?"
+        }
+      },
+      {
+        "id": "agentic_ai_moderate_1",
+        "question": "How would you think about short-term versus long-term memory in an agent, and why does that distinction matter?",
+        "shape": "Technical",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-90",
+        "reference_answers": {
+          "score_9": "Short-term memory is basically the current conversation or task context, everything that fits in the model's context window right now, and it disappears once the session ends. Long-term memory is stuff that needs to persist across sessions, like facts about the user, usually stored somewhere outside the model like a vector database, then retrieved and injected back into context when relevant. The distinction matters because you can't just keep stuffing everything into the context window forever, it gets expensive and attention gets diluted. On our project we kept a short-term buffer of the current round, but stored durable facts in a separate persistent store pulled at the start of each round.",
+          "score_6": "Short-term memory is what's in the current context window during a session, and long-term memory is stuff that gets saved somewhere and pulled back in later across different sessions. It matters because you can't fit everything into context forever, so you need a way to store and retrieve the important parts separately. We used a simple persistent store for anything that needed to last beyond one session.",
+          "score_3": "Short-term memory is for the current session and long-term is for stuff that needs to be remembered later, I get the general idea behind why you'd need both, but I haven't actually built the storage and retrieval part of that myself in a real system yet."
+        },
+        "probes": {
+          "definition_missing": "What actually breaks if you rely only on short-term memory for everything?",
+          "mechanism_missing": "Walk me through how something moves from short-term into long-term storage.",
+          "tradeoff_missing": "What's the tradeoff of storing too much in long-term memory?",
+          "experience_missing": "Have you actually implemented a memory system for an agent yourself?"
+        }
+      },
+      {
+        "id": "agentic_ai_moderate_2",
+        "question": "Tell me about a time an agent you built failed in production. What happened and what did you do?",
+        "shape": "STAR",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "We had an agent that was supposed to search for a fact, verify it against a second source, and then answer, but in production it started getting stuck calling the search tool repeatedly with nearly identical queries instead of moving to verification. I was monitoring the logs, so I noticed the pattern by checking tool call history for failed sessions and saw the model kept rephrasing the same search without ever being satisfied. I added an explicit step counter that forced the agent to move on after three attempts regardless of confidence, and logged a fallback message when that limit hit. After that change, the stuck-loop failures dropped basically to zero and response time improved too.",
+          "score_6": "We had an agent that kept looping on the same tool call instead of finishing the task properly like it was supposed to. I noticed the pattern in the logs after a few users complained, added a limit on how many times it could retry a step, and that fixed the looping issue once we deployed the change and monitored it for a few days.",
+          "score_3": "Something like that happened once, an agent got stuck doing the same thing repeatedly instead of finishing the task, and someone on the team added a fix for it. It worked better after that change went out, though I wasn't the one who actually debugged it myself."
+        },
+        "probes": {
+          "situation_missing": "Set the scene — what was the agent supposed to do and what went wrong?",
+          "task_missing": "What was your role in noticing or investigating this failure?",
+          "action_missing": "What did you actually do, step by step, to fix it?",
+          "result_missing": "How did you confirm the fix worked, and what changed afterward?"
+        }
+      },
+      {
+        "id": "agentic_ai_hard_1",
+        "question": "What guardrails would you put around an agent that has access to tools which can take real, irreversible actions?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "The first thing is separating read actions from write actions — fetching information can run freely, but changing state, like sending an email, deleting a file, or making a payment, should require explicit confirmation, either from a human or a stricter validation layer. I'd also put hard limits on scope, like only letting the agent touch files in a specific directory or send emails to an approved list, so even if the model reasons its way into a bad decision the blast radius is contained. On a project with a file-editing agent, we required a diff preview and approval before any write happened, because testing showed the model would occasionally misinterpret an instruction and delete more than it should have.",
+          "score_6": "You'd want to separate actions that just read data from actions that actually change something, and require some kind of confirmation before anything irreversible happens. Limiting the scope of what the agent can touch, like specific files or a whitelist of recipients, also helps contain any mistakes it might make. We added a confirmation step for anything destructive on one of our agents.",
+          "score_3": "You'd probably want some kind of approval step before the agent does anything permanent, and maybe limit what it has access to overall as an extra safety layer, though I haven't actually built guardrails like that myself yet on a real production system."
+        },
+        "probes": {
+          "definition_missing": "What's the actual difference in risk between a read action and a write action here?",
+          "mechanism_missing": "Walk me through what a confirmation step would look like technically.",
+          "tradeoff_missing": "What's the tradeoff between tight guardrails and the agent feeling less autonomous or useful?",
+          "experience_missing": "Have you actually built guardrails around a tool-using agent yourself?"
+        }
+      },
+      {
+        "id": "agentic_ai_hard_2",
+        "question": "Describe the infinite-loop failure mode in agents and how you'd actually detect and prevent it before it wastes compute or money.",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "The failure mode is the agent stuck in a cycle, taking an action, getting a result that doesn't satisfy its goal, and retrying a near-identical action instead of escalating or giving up, which can burn tokens and API calls indefinitely with no hard stop. To detect it, I'd track recent actions and flag near-duplicate tool calls, since that repetition is a strong signal something's wrong. To prevent it, I'd put a hard step budget per task, and a similarity check forcing a fallback or human-escalation path once it's clearly circling. On a real agent we built, a max-step cap of ten cut costs a lot, since before that a stuck session ran over an hour calling the same endpoint.",
+          "score_6": "It's when the agent keeps repeating a similar action over and over without making real progress, which can waste a lot of compute or money if nothing stops it eventually. You can detect it by checking if recent actions look too similar to each other, and prevent it by putting a hard limit on the number of steps or retries allowed per task. We added a step limit on one of our agents specifically for this reason.",
+          "score_3": "It's when the agent gets stuck doing the same thing over and over without making progress, you'd probably want some kind of limit to stop that from happening eventually, though I haven't actually implemented that kind of detection myself in a real agent before."
+        },
+        "probes": {
+          "definition_missing": "What actually causes the model to keep repeating a near-identical action?",
+          "mechanism_missing": "Walk me through how you'd detect this pattern automatically from the logs.",
+          "tradeoff_missing": "What's the cost or risk if this isn't caught in time?",
+          "experience_missing": "Have you actually hit and fixed this failure mode yourself?"
+        }
+      }
+    ],
+    "devops_sre": [
+      {
+        "id": "devops_sre_easy_1",
+        "question": "What does a CI/CD pipeline actually do, and what would break if you skipped the CI part and just deployed straight from someone's laptop?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "CI runs your tests and build automatically every time someone pushes code, so problems get caught before they ever reach production instead of after. CD then takes that verified build and actually ships it out to servers, usually through a series of environments like staging before prod. If you skip CI and just deploy from a laptop, you lose that automatic safety net, so it's entirely up to the person remembering to run tests locally, and different laptops can have different dependency versions, which causes the classic 'works on my machine' problem showing up in production instead.",
+          "score_6": "CI automatically builds and tests code whenever someone pushes, so bugs get caught early before deployment ever happens. CD takes that tested build and deploys it out to servers automatically. Without CI you're relying on individuals to test manually, and things can slip through that a laptop deploy simply wouldn't catch in time. I've worked with pipelines that automated both of these steps on past projects before.",
+          "score_3": "CI/CD automates building, testing, and deploying code, it makes deployments safer and more consistent across the whole team. I know skipping it is risky since things can break in production, but I haven't had to set up a full pipeline myself from scratch yet on a real project."
+        },
+        "probes": {
+          "definition_missing": "What specifically runs during the CI stage before deployment happens?",
+          "mechanism_missing": "Walk me through what happens step by step once a developer pushes code.",
+          "tradeoff_missing": "What's the actual risk of deploying without running CI first?",
+          "experience_missing": "Have you actually configured a CI/CD pipeline yourself?"
+        }
+      },
+      {
+        "id": "devops_sre_easy_2",
+        "question": "What's the actual difference between monitoring, logging, and tracing, and why do you need all three?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "Monitoring is your aggregate metrics over time, like CPU usage or request rate, good for spotting that something's wrong at a glance. Logging is the detailed record of individual events, useful once you know something's wrong and need to dig into exactly what happened. Tracing follows one specific request as it moves across multiple services, which is the only way to actually pinpoint where in a distributed system the slowdown or failure happened. On one incident, monitoring told us latency spiked, logs showed errors in one particular service, but it was tracing that revealed the real bottleneck was actually a slow downstream call three hops away.",
+          "score_6": "Monitoring shows you overall metrics like CPU or latency so you can tell something's wrong at a glance. Logging gives you detailed records of specific events so you can dig into the actual cause once you know something's off. Tracing follows a single request across different services to find exactly where a problem happened in the chain. We used all three together to debug a tricky latency issue on one project.",
+          "score_3": "Monitoring is for metrics, logging is for events, and tracing is for following requests across services, I know they're all related to observability in some way, but I haven't had to set all three up myself on a real production system yet."
+        },
+        "probes": {
+          "definition_missing": "What would you actually see in a monitoring dashboard versus a log entry?",
+          "mechanism_missing": "How does tracing actually follow a request across services technically?",
+          "tradeoff_missing": "What's the risk of only having monitoring and no tracing?",
+          "experience_missing": "Have you actually used all three together to debug something yourself?"
+        }
+      },
+      {
+        "id": "devops_sre_moderate_1",
+        "question": "What's the tradeoff of managing your infrastructure with something like Terraform versus just clicking around in the cloud console?",
+        "shape": "Technical",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-90",
+        "reference_answers": {
+          "score_9": "With infrastructure as code, every change is a reviewable diff in version control, so you can see exactly what changed, roll it back, and reproduce the same environment reliably in staging or a new region. Clicking around in the console is faster for a one-off change, but it's not reproducible, nobody else knows what you actually clicked, and you end up with configuration drift where the real infrastructure slowly diverges from whatever's documented. We had an incident where someone manually changed a security group in the console to unblock themselves, forgot to document it, and it caused a confusing outage weeks later when Terraform tried to reconcile state and reverted that manual change without anyone expecting it.",
+          "score_6": "Terraform lets you version control your infrastructure changes so they're reviewable and repeatable across different environments, while clicking in the console is quicker but not tracked anywhere at all afterward. The risk with the console is configuration drift, where what's actually running slowly diverges from whatever anyone documented in the past. We use Terraform for most of our infrastructure specifically for that reason, since it makes rollbacks and audits much easier.",
+          "score_3": "Terraform is more reliable and repeatable than clicking manually in the console, but it has more of a learning curve upfront for a team, so it probably depends on the size of the team and how complex the project is expected to get."
+        },
+        "probes": {
+          "definition_missing": "What actually goes wrong when infrastructure isn't defined as code?",
+          "mechanism_missing": "Walk me through what happens when Terraform detects drift.",
+          "tradeoff_missing": "What's the tradeoff of the added complexity of infrastructure as code?",
+          "experience_missing": "Have you actually written Terraform or similar IaC yourself?"
+        }
+      },
+      {
+        "id": "devops_sre_moderate_2",
+        "question": "Tell me about a production incident that happened at an inconvenient time. What did you actually do?",
+        "shape": "STAR",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "Our API started throwing 500 errors around 2am during finals week traffic, and I was the only one on call and online at the time. I checked the dashboards first and saw database connections were maxed out, then found a cron job we'd recently added was holding a table lock that the main app also needed to read from. I killed the cron job manually to unblock users, which took about eight minutes from the first alert, then the next day I rewrote the job to run in smaller batches instead of one giant transaction so it wouldn't hold the lock nearly as long, and added a specific alert for connection pool exhaustion so we'd catch it earlier next time.",
+          "score_6": "We had an outage at night where the database was locking up and throwing errors for a lot of users at once. I looked into the dashboards, found the query that was causing the lock, and killed it manually to get things back to normal quickly, then fixed the underlying query properly the next day once I had more time.",
+          "score_3": "We had a production issue once at a bad time and I helped look into it along with the rest of the team, and it got resolved after a bit of investigation into what was actually going on with the system."
+        },
+        "probes": {
+          "situation_missing": "Set the scene — what was happening and how did you find out?",
+          "task_missing": "What were you specifically responsible for handling in that moment?",
+          "action_missing": "What did you personally do, step by step, to fix it?",
+          "result_missing": "How did you confirm it was fixed, and what changed afterward?"
+        }
+      },
+      {
+        "id": "devops_sre_hard_1",
+        "question": "When would you choose canary deployment over blue-green, and what does each actually protect you from?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "Blue-green keeps two full identical environments and switches all traffic at once, so rollback is instant since you just flip back, but a bad deploy affects a hundred percent of users the moment you switch. Canary instead rolls the new version out to a small slice of traffic first, like five percent, and you watch error rates before gradually increasing that slice, so a bad deploy only hurts a fraction of users and you catch it before full rollout. I'd pick canary for anything high-risk where blast radius matters, but blue-green is simpler and fine for lower-stakes services where instant rollback matters more. We used canary for a payments service since even a brief outage there was unacceptable.",
+          "score_6": "Blue-green switches all traffic to the new version at once and lets you roll back instantly if something goes wrong. Canary sends a small percentage of traffic to the new version first and you expand it gradually while watching metrics. Canary is safer for risky changes since fewer users are affected if something breaks, but it's more complex to set up than blue-green.",
+          "score_3": "Canary rolls out gradually and blue-green switches everything at once, canary is supposed to be safer for risky changes since fewer users get affected, though I haven't actually set up either of these myself in a real deployment pipeline before."
+        },
+        "probes": {
+          "definition_missing": "What actually happens at the infrastructure level during a blue-green switch?",
+          "mechanism_missing": "Walk me through how traffic percentage is controlled in a canary rollout.",
+          "tradeoff_missing": "What's the tradeoff in complexity between the two approaches?",
+          "experience_missing": "Have you actually used canary or blue-green deployments yourself?"
+        }
+      },
+      {
+        "id": "devops_sre_hard_2",
+        "question": "Your team is complaining about alert fatigue, everyone's getting paged constantly and starting to ignore alerts. How would you actually fix that?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "Alert fatigue usually means the signal-to-noise ratio is broken, so the fix starts with auditing every alert and asking if it's actually actionable, meaning does it require a human to do something now, or is it just noise that should be a dashboard metric instead. Anything not truly actionable gets demoted out of paging entirely. I'd also check whether alerts are symptom-based, like actual user-facing error rate, rather than cause-based, like one server's CPU spiking, since cause-based alerts fire constantly even when users are unaffected. On one team we cut paging volume by more than half by removing alerts tied to individual instances and replacing them with aggregate, user-impact thresholds, and on-call started trusting pages again after that.",
+          "score_6": "You'd want to go through the existing alerts and figure out which ones are actually actionable versus just noise that doesn't need a page. Alerts based on user-facing symptoms tend to be more useful than ones based on individual server metrics that fire too often. We reduced paging volume on one team by removing noisy alerts and keeping only the important ones that mattered.",
+          "score_3": "You'd probably need to reduce the number of alerts somehow and make sure only the truly important ones actually page someone at all. I know it usually involves looking at which alerts are actionable versus just noise, though I haven't personally had to redesign an alerting system myself before."
+        },
+        "probes": {
+          "definition_missing": "What makes an alert 'actionable' versus just noise, specifically?",
+          "mechanism_missing": "Walk me through how you'd audit an existing alert set to find the noisy ones.",
+          "tradeoff_missing": "What's the risk of cutting too many alerts versus too few?",
+          "experience_missing": "Have you actually gone through this kind of alert cleanup yourself?"
+        }
+      }
+    ],
+    "cybersecurity": [
+      {
+        "id": "cybersecurity_easy_1",
+        "question": "What's the actual difference between authentication and authorization, and why do people mix them up?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "Authentication is proving who you are, like logging in with a password or a token, and authorization is deciding what you're actually allowed to do once you're recognized. People mix them up because both usually happen right next to each other in a login flow, so it feels like one step even though they're answering completely different questions. We had a bug once where a user was correctly authenticated but the authorization check for an admin-only page was missing, so any logged-in user, even one with a totally normal account, could load the admin dashboard just by knowing the URL.",
+          "score_6": "Authentication verifies who you are, like checking your password, and authorization decides what you're allowed to access after that verification happens. They get confused because they usually happen together in the same login process, one right after the other. We had an issue once where authorization was missing on a page even though authentication itself was working perfectly fine for everyone.",
+          "score_3": "Authentication is about logging in and authorization is about permissions, they're related concepts but different ones, I know that much but I'd need to think about a real concrete example to explain the exact distinction more clearly than that, honestly."
+        },
+        "probes": {
+          "definition_missing": "What actually happens during authentication versus during authorization, step by step?",
+          "mechanism_missing": "Walk me through how a server checks each of these on a request.",
+          "tradeoff_missing": "What's the risk of having authentication but missing authorization?",
+          "experience_missing": "Have you actually found or fixed a bug involving one of these?"
+        }
+      },
+      {
+        "id": "cybersecurity_easy_2",
+        "question": "How does a SQL injection attack actually work, and what's the real fix for it?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "SQL injection happens when user input gets concatenated directly into a SQL query string instead of being treated as pure data, so an attacker can type something like a quote followed by their own SQL and the database ends up executing it as part of the actual query instead of just storing it. The real fix is parameterized queries or prepared statements, where the input is always passed separately from the query structure so it can never be interpreted as code no matter what characters are in it. We found an old endpoint on a project that was still building queries with plain string concatenation, and switching it to parameterized queries closed that hole immediately.",
+          "score_6": "SQL injection happens when someone puts SQL code into an input field and the app runs it as part of a real query instead of treating it as plain text data like it should. The fix is using parameterized queries instead of building queries with raw string concatenation directly. We fixed an old endpoint like that on a project once and it closed the hole right away.",
+          "score_3": "SQL injection is when someone injects SQL into an input to mess with the database somehow, you fix it with parameterized queries I believe, though I haven't personally had to fix a real injection vulnerability myself before on an actual project."
+        },
+        "probes": {
+          "definition_missing": "Can you walk through an actual example of what the injected input would look like?",
+          "mechanism_missing": "How does a parameterized query technically prevent the injection from working?",
+          "tradeoff_missing": "What's the risk if you rely on just sanitizing input instead of parameterizing?",
+          "experience_missing": "Have you actually found or fixed a SQL injection vulnerability yourself?"
+        }
+      },
+      {
+        "id": "cybersecurity_moderate_1",
+        "question": "Walk me through how you'd actually approach threat modeling for a new feature before it ships.",
+        "shape": "Technical",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-90",
+        "reference_answers": {
+          "score_9": "I'd start by mapping out what data the feature touches and who can reach it, then think through what an attacker would actually want, whether that's data theft, denial of service, or privilege escalation. From there I'd walk through the entry points, like every place user input enters the system, and ask what happens if that input is malicious rather than assuming it'll always be well-formed. On a file-upload feature we built, threat modeling surfaced that we hadn't restricted file types on the server side, only in the frontend, so an attacker could've uploaded an executable disguised as an image just by bypassing the client-side check, which we caught before launch and fixed with real server-side validation.",
+          "score_6": "You'd want to think about what data the feature touches, who has access to it, and what an attacker might actually want to do with it. Then look at the entry points where user input comes in and think about what could go wrong there. We found a gap in file upload validation once by going through this kind of process before shipping.",
+          "score_3": "Threat modeling means thinking about what could go wrong security-wise before something ships, you look at the risks and entry points systematically. Though I haven't run a full threat modeling session myself yet on a real feature, I understand the general idea behind why teams do it before launching."
+        },
+        "probes": {
+          "definition_missing": "What specifically are you looking for when you map out entry points?",
+          "mechanism_missing": "Walk me through how you'd prioritize which threats matter most.",
+          "tradeoff_missing": "What's the tradeoff between thorough threat modeling and shipping quickly?",
+          "experience_missing": "Have you actually run a threat modeling exercise yourself on a real feature?"
+        }
+      },
+      {
+        "id": "cybersecurity_moderate_2",
+        "question": "Tell me about a security incident you were involved in responding to. What did you actually do?",
+        "shape": "STAR",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "We noticed a spike in failed login attempts from a small set of IP addresses hitting one account repeatedly, which looked like a credential stuffing attempt rather than normal user behavior. I was the one monitoring alerts that week, so once I saw the pattern I temporarily blocked those IPs at the load balancer level and forced a password reset on the targeted account as a precaution, even though there was no confirmed breach yet. After that I dug into our logs to confirm no other accounts were affected, and pushed for adding rate limiting on the login endpoint so a single IP couldn't hammer it that many times in a row again, which we shipped within the week.",
+          "score_6": "We saw a bunch of failed login attempts that looked suspicious, like someone trying to break into an account through brute force over a short window of time somehow. I helped block the IPs causing it and reset the account's password just to be safe, and we looked into whether anything else had been affected by the same activity afterward.",
+          "score_3": "Something like that happened once, there was suspicious login activity and the team looked into it and took some action to stop it happening again to that account. Things were fine after that as far as I know at the time, though I wasn't super involved directly."
+        },
+        "probes": {
+          "situation_missing": "Set the scene — what did you actually see that looked suspicious?",
+          "task_missing": "What was your role in responding to this incident?",
+          "action_missing": "What did you personally do, step by step, to address it?",
+          "result_missing": "How did you confirm it was actually handled, and what changed afterward?"
+        }
+      },
+      {
+        "id": "cybersecurity_hard_1",
+        "question": "What are the common ways a JWT-based authentication system gets implemented insecurely?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "One common mistake is not verifying the signing algorithm properly, so if the server trusts whatever algorithm the token claims, an attacker can craft a token with 'none' as the algorithm and the server might accept it without checking a signature. Another is storing the JWT in localStorage where XSS can steal it, versus an httpOnly cookie which JavaScript can't read. People also forget JWTs can't be easily revoked once issued, since they're valid until expiry, so a leak means waiting it out unless you maintain a blocklist. On a project we found token expiry was set to thirty days, way too long, so we shortened it to fifteen minutes and added a refresh token flow to limit exposure.",
+          "score_6": "A big one is not validating the signing algorithm properly, which can let an attacker forge a token if the server isn't strict about checking it. Storing the token somewhere JavaScript can access, like localStorage, is also risky because of XSS attacks. Another issue is tokens being hard to revoke once issued, so leaks can stay valid until they naturally expire on their own.",
+          "score_3": "JWTs can be implemented insecurely in a few ways, like not validating things properly or storing them somewhere unsafe on the client, but I'd need to look into the specifics again to name the exact common mistakes people tend to make in practice."
+        },
+        "probes": {
+          "definition_missing": "What actually happens if the server doesn't validate the signing algorithm strictly?",
+          "mechanism_missing": "Walk me through why localStorage is riskier than an httpOnly cookie for this.",
+          "tradeoff_missing": "What's the tradeoff of short-lived tokens plus refresh tokens versus long-lived ones?",
+          "experience_missing": "Have you actually found or fixed an insecure JWT setup yourself?"
+        }
+      },
+      {
+        "id": "cybersecurity_hard_2",
+        "question": "What does 'defense in depth' actually mean, and what's the tradeoff of building a system that way instead of relying on one strong perimeter?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "Defense in depth means you assume any single security layer will fail, so you stack multiple independent layers, like network segmentation, authentication, authorization checks, input validation, and encryption, so a breach of one layer doesn't mean full compromise. A single strong perimeter, like a good firewall, is simpler and cheaper to build, but it's a single point of failure, and once someone's inside there's often nothing stopping lateral movement. The tradeoff is real complexity and cost, more layers means more to configure and monitor closely. On a project we added internal authorization checks between services even though they were all behind the same firewall, and that alone caught a compromised service reaching a database it had no business touching.",
+          "score_6": "It means having multiple layers of security instead of relying on just one strong barrier, so if one layer fails there are still others in place to stop an attacker. The tradeoff is more complexity and more things to configure and maintain properly. We added extra internal checks on a project even though everything was already behind a firewall, mainly as an extra safety layer.",
+          "score_3": "Defense in depth is having multiple layers of protection instead of just one, it's supposed to be more secure overall but probably more complex to manage, though I haven't actually implemented a layered security setup myself on a real system."
+        },
+        "probes": {
+          "definition_missing": "What's a concrete example of one of these layers actually stopping something?",
+          "mechanism_missing": "Walk me through what happens if an attacker gets past the outer layer.",
+          "tradeoff_missing": "What's the actual cost or downside of adding more layers?",
+          "experience_missing": "Have you actually worked on a system designed with defense in depth?"
+        }
+      }
+    ],
+    "mobile": [
+      {
+        "id": "mobile_easy_1",
+        "question": "What are some real differences between building for iOS versus Android that actually bite people?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "Beyond the obvious language difference, the two platforms have very different lifecycle and permission models — Android is way more aggressive about killing background processes to save battery, so state you assumed would persist can just vanish, while iOS is stricter about what you can even do in the background at all. Notifications, background location, and push setup are handled completely differently under the hood too. We had a bug where a feature worked fine on iOS but silently failed on Android because the OS had killed our background service without warning, which we only caught by testing on a low-end Android device instead of just a flagship.",
+          "score_6": "iOS and Android differ in things like background process handling, permissions, and how notifications work under the hood. Android tends to kill background processes more aggressively to save battery than iOS typically does. We ran into an issue once where something worked fine on iOS but not on Android because of that exact difference in behavior between the two platforms.",
+          "score_3": "iOS and Android are different platforms with different rules, I know there are differences in things like permissions and background behavior, but I haven't personally built for both platforms enough to list the specific gotchas that come up in practice."
+        },
+        "probes": {
+          "definition_missing": "What actually happens differently under the hood when an app goes to the background on each platform?",
+          "mechanism_missing": "Walk me through a concrete case where this difference caused a real bug.",
+          "tradeoff_missing": "What's the risk of only testing on one platform's flagship device?",
+          "experience_missing": "Have you actually shipped an app on both platforms yourself?"
+        }
+      },
+      {
+        "id": "mobile_easy_2",
+        "question": "Walk me through the app lifecycle states and why getting this wrong causes real bugs.",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "An app moves through states like foreground active, background, and terminated, and each transition is a moment where you might need to save state, pause work, or release resources like a camera or a network connection. If you don't handle backgrounding properly, things like an in-progress upload can just get killed halfway through with no warning, or a video keeps playing audio in the background when it shouldn't. We had a bug where a timer kept running after the app was backgrounded because we never paused it on the transition, so when the user came back the timer had silently drifted way off from what it should've shown.",
+          "score_6": "The app moves through states like active, background, and terminated, and you need to handle transitions properly, like pausing work or saving state when it goes to the background. If you don't handle this correctly things can break, like a task getting killed mid-way or resources not being released properly. We had a bug related to not pausing something correctly on backgrounding once.",
+          "score_3": "There are different lifecycle states like foreground and background, you need to handle transitions between them correctly, I know it matters for avoiding bugs but I'd need to look at the actual state diagram again to explain it in more depth."
+        },
+        "probes": {
+          "definition_missing": "Can you name the actual lifecycle states and what triggers each transition?",
+          "mechanism_missing": "Walk me through what you'd actually do in code when the app backgrounds.",
+          "tradeoff_missing": "What's the risk of not releasing resources like a camera on backgrounding?",
+          "experience_missing": "Have you personally debugged a lifecycle-related bug yourself?"
+        }
+      },
+      {
+        "id": "mobile_moderate_1",
+        "question": "How would you actually design an offline-first mobile app, and what's the hardest part of getting it right?",
+        "shape": "Technical",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-90",
+        "reference_answers": {
+          "score_9": "Offline-first means the app treats the local database as the source of truth for the UI, and syncs with the server in the background whenever connectivity allows, rather than blocking on a network call every time. The hardest part isn't offline storage itself, it's conflict resolution — if a user edits something offline and the same record changed on the server, you need a clear strategy, whether that's last-write-wins, merging fields, or surfacing the conflict directly. We built a notes app where two devices edited the same note offline, and without a proper merge strategy the sync silently overwrote one user's changes, which we fixed by adding field-level timestamps instead of a single whole-record timestamp.",
+          "score_6": "Offline-first means storing data locally first and syncing with the server later when there's connectivity, instead of relying on the network for every action. The tricky part is handling conflicts when the same data gets changed both offline and on the server around the same time. We had a sync conflict issue on a project that we fixed by improving how we tracked changes.",
+          "score_3": "Offline-first apps store data locally and sync later, the hard part is probably handling conflicts between offline and online changes made around the same time, though I haven't actually built a full offline-first app myself from scratch on a real project."
+        },
+        "probes": {
+          "definition_missing": "What does 'source of truth' actually mean in this context?",
+          "mechanism_missing": "Walk me through what happens technically when connectivity comes back.",
+          "tradeoff_missing": "What's the tradeoff between different conflict resolution strategies?",
+          "experience_missing": "Have you actually built or debugged sync conflict handling yourself?"
+        }
+      },
+      {
+        "id": "mobile_moderate_2",
+        "question": "Tell me about a time you tracked down a battery or memory issue in a mobile app. What did you actually do?",
+        "shape": "STAR",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "Users started reporting that our app was draining battery faster than expected, especially when left open in the background for a while. I was assigned to investigate, so I used the platform's energy profiling tools to see what was consuming power, and found a location-tracking feature was polling GPS continuously even when backgrounded and not actively needed. I changed it to poll at a coarser interval in the background and stop entirely after a timeout with no activity, then verified the fix by running the same profiling tool before and after. Battery drain dropped dramatically in the following release, and complaints stopped almost immediately.",
+          "score_6": "We got reports that the app was draining battery too fast, so I looked into it using a profiling tool and found that GPS was being polled too often even when the app was in the background. I changed the polling interval to be less frequent, and that helped reduce the battery usage noticeably once we shipped the fix out.",
+          "score_3": "Something like that happened once, the app was using too much battery and someone looked into it and found the cause of the issue eventually. It got fixed after that in a later update, though I wasn't the one who tracked it down myself."
+        },
+        "probes": {
+          "situation_missing": "Set the scene — what were users reporting and how did you find out?",
+          "task_missing": "What was your role in investigating this issue?",
+          "action_missing": "What did you actually do, step by step, to find and fix the cause?",
+          "result_missing": "How did you confirm it was actually fixed, and what changed afterward?"
+        }
+      },
+      {
+        "id": "mobile_hard_1",
+        "question": "What's the tradeoff between aggressive background sync and battery life, and how would you actually balance the two?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "More frequent background sync means fresher data and a snappier experience, but every wake-up costs battery, and doing it too often is one of the fastest ways to get your app flagged as a battery drain by the OS, which can lead to the system restricting your background access entirely. I'd batch sync operations instead of firing them constantly, use platform-provided scheduling like deferred background tasks the OS can coalesce with other apps' wake-ups, and adjust frequency based on how critical freshness actually is for that data type. On a messaging app, we synced urgent messages via push immediately, but batched less critical data like read receipts into a periodic job every fifteen minutes.",
+          "score_6": "Syncing too often keeps data fresh but drains battery faster, and the OS can penalize apps that wake up too frequently in the background. You'd want to batch sync operations and use the platform's scheduled background task APIs instead of syncing constantly on your own schedule. We adjusted sync frequency based on how important the data was on one project.",
+          "score_3": "There's a tradeoff between fresh data and battery usage, you'd probably want to batch things together somehow instead of syncing constantly. Though I haven't actually had to tune background sync frequency myself on a real shipped app, I understand the general reasoning behind why it matters."
+        },
+        "probes": {
+          "definition_missing": "What actually happens at the OS level if you sync too aggressively?",
+          "mechanism_missing": "Walk me through how a platform's background scheduling API actually works.",
+          "tradeoff_missing": "What's the risk of batching sync too infrequently instead?",
+          "experience_missing": "Have you actually tuned background sync behavior yourself on a shipped app?"
+        }
+      },
+      {
+        "id": "mobile_hard_2",
+        "question": "How do you manage state so it survives things like screen rotation, backgrounding, and process death, without just reloading everything from scratch every time?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "You need a few layers working together — transient UI state like scroll position can live in memory and gets recreated on rotation since that's cheap, but anything the user would be upset to lose, like form input, needs saving to a lightweight persisted bundle that survives full process death, not just configuration changes. The mistake people make is treating rotation and process death as the same event, when process death wipes memory entirely and only a persisted save can recover. On a checkout flow we built, we saved the in-progress form to local storage on every field change, not just on backgrounding, because the OS sometimes killed the process under memory pressure mid-checkout, and only the persisted version survived.",
+          "score_6": "You'd save important state to some kind of persistent storage that survives beyond just memory, rather than only relying on in-memory state that could get wiped during rotation or process death. The key thing is knowing process death is different from rotating the screen, since simple in-memory state doesn't survive that. We saved form data persistently on a checkout screen for exactly this reason on one project.",
+          "score_3": "You need to save state somewhere that survives rotation and process death, not just keep it in memory the whole time. I know the general idea behind why this matters, but I haven't personally implemented that kind of persistence myself in a real shipped app before."
+        },
+        "probes": {
+          "definition_missing": "What's actually different between a rotation event and a process death event?",
+          "mechanism_missing": "Walk me through what you'd persist versus what you'd just recreate.",
+          "tradeoff_missing": "What's the risk of saving too much state too often?",
+          "experience_missing": "Have you actually built or debugged state restoration yourself?"
+        }
+      }
+    ],
+    "uiux": [
+      {
+        "id": "uiux_easy_1",
+        "question": "Walk me through your actual design process for a new feature, from getting the request to handing off final designs.",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "I start by making sure I actually understand the problem before opening any design tool, usually talking to whoever requested it and maybe a couple of users if there's time, since jumping straight to mockups tends to solve the wrong problem. Then I sketch low-fidelity options quickly to explore direction without getting attached to pixels too early, narrow to one or two directions, and only then move to high-fidelity once the structure feels right. For handoff, I make sure developers get not just the final screens but the states in between, like loading, empty, and error, since those get missed constantly if you only hand off the happy path.",
+          "score_6": "I usually start by understanding the problem and talking to whoever requested the feature, then sketch a few rough directions before picking one to refine into a high-fidelity design. For handoff I try to include different states like loading and error, not just the main happy-path screen. I've followed a process roughly like this on most past projects I've worked on.",
+          "score_3": "I go from understanding the request to sketching to final designs, I know it's supposed to go through stages roughly like that, but I haven't fully documented my own process yet in a formal written way, so I'm still figuring out the exact steps."
+        },
+        "probes": {
+          "definition_missing": "What specifically are you doing in that early problem-understanding phase?",
+          "mechanism_missing": "Walk me through what low-fidelity sketching actually looks like for you in practice.",
+          "tradeoff_missing": "What's the risk of skipping straight to high-fidelity mockups?",
+          "experience_missing": "Have you actually run a design process like this end to end yourself?"
+        }
+      },
+      {
+        "id": "uiux_easy_2",
+        "question": "Tell me about a time user research changed your mind about a design decision.",
+        "shape": "STAR",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "I was designing an onboarding flow and was convinced a longer, more guided tutorial would help new users, since that's what most similar products did. During a round of usability testing, I watched three users in a row skip past the tutorial entirely without reading it, then get confused later at the exact point the tutorial would've explained. I redesigned it into short contextual tips that appear only when a user actually reaches that part of the app instead of a big upfront tutorial, and in the next round of testing the same confusion point disappeared for every participant we tested.",
+          "score_6": "I was working on an onboarding flow and assumed a longer tutorial would help new users get started properly, but user testing showed people were just skipping it entirely and getting confused later on. I changed it to contextual tips that show up only when actually needed instead, and that tested noticeably better in a follow-up round of sessions with new participants.",
+          "score_3": "Something like that happened during a project, testing showed users didn't like a design choice I'd made and were getting confused by it. So I changed the approach based on what I saw happening in the sessions, though I don't remember every detail of it now."
+        },
+        "probes": {
+          "situation_missing": "Set the scene — what was your original design assumption?",
+          "task_missing": "What was your role in running or observing the research?",
+          "action_missing": "What did you actually change based on what you saw?",
+          "result_missing": "How did you confirm the change actually worked better?"
+        }
+      },
+      {
+        "id": "uiux_moderate_1",
+        "question": "What's the tradeoff between strict design system consistency and giving individual product teams flexibility?",
+        "shape": "Technical",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-90",
+        "reference_answers": {
+          "score_9": "A strict design system means every button, spacing value, and color comes from one shared source, so the product feels coherent and engineers build faster because they're not reinventing components for every screen. The cost is that teams sometimes hit a valid use case the system doesn't support yet, and if there's no clear path to propose a change, people either misuse an existing component in a way that breaks its intent or go rogue and build something custom, which quietly erodes the system over time. On a project, we handled this with a lightweight process for teams to request new variants, reviewed weekly, so flexibility was possible without everyone forking components on their own.",
+          "score_6": "A strict design system keeps things consistent across the product and makes development faster since components are already built, but it can be limiting if a team has a real need the system doesn't support. The risk is teams working around the system in inconsistent ways if there's no good process for adding new components. We had a review process for proposing new components on one project.",
+          "score_3": "Consistency helps the product feel unified but can limit flexibility for teams with specific needs of their own, so there's a balance to strike between the two goals. Though I haven't personally managed a design system myself yet, I understand roughly why teams choose to build them in the first place."
+        },
+        "probes": {
+          "definition_missing": "What actually breaks visually or functionally without a shared design system?",
+          "mechanism_missing": "Walk me through how a team would propose an exception to the system.",
+          "tradeoff_missing": "What's the risk of making the system too rigid versus too loose?",
+          "experience_missing": "Have you actually worked with or contributed to a design system yourself?"
+        }
+      },
+      {
+        "id": "uiux_moderate_2",
+        "question": "Tell me about a time you had to convince a stakeholder to change direction based on user feedback.",
+        "shape": "STAR",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "A product manager wanted to ship a redesigned checkout flow that tested well internally, but in usability testing with actual users, four out of five participants got stuck at the same step because a required field wasn't visually distinct from an optional one. The PM wanted to launch on schedule since the deadline was tight and the issue seemed minor to fix later. I put together a short clip of the actual sessions showing users visibly confused at that step, rather than just describing it in a slide, and walked the PM through it directly. Seeing users struggle changed their mind, we delayed the launch by three days to fix the styling, and the issue didn't come up again.",
+          "score_6": "A PM wanted to launch a checkout redesign on schedule, but testing showed users were getting confused at one particular step during the flow. I showed them a clip of the actual testing session instead of just describing it verbally, and that convinced them to delay the launch slightly to fix the issue before it went out to real users.",
+          "score_3": "Something like that happened once, a stakeholder wanted to move forward with the original plan but testing showed a problem with it. I brought the issue up to them directly, and we ended up adjusting the plan a bit before the actual launch happened."
+        },
+        "probes": {
+          "situation_missing": "Set the scene — what did testing actually reveal and what did the stakeholder want to do?",
+          "task_missing": "What was your role in this disagreement?",
+          "action_missing": "What did you actually do or say to make your case?",
+          "result_missing": "What happened after that — did the outcome actually change?"
+        }
+      },
+      {
+        "id": "uiux_hard_1",
+        "question": "Where do accessibility requirements and visual design intent actually conflict, and how do you resolve that?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "A common conflict is color contrast — light gray text on white might look elegant, but it fails WCAG contrast ratios for anyone with low vision, so you fight for a compliant shade or you're excluding users to preserve a preference. Another is touch target size, since a minimalist design with tightly packed icons looks clean but becomes hard to tap accurately for anyone with limited motor control. My approach treats contrast and target sizes as non-negotiable constraints, like a grid, solving the aesthetic problem within them rather than bolting accessibility on later. On a project, we darkened a brand gray a few shades to hit AA contrast, and it looked more intentional next to the palette.",
+          "score_6": "Contrast ratios and touch target sizes are common places where accessibility and pure visual design intent clash, since some visually appealing choices fail accessibility guidelines. I try to treat accessibility requirements as fixed constraints from the start of a design rather than something to fix at the end. We adjusted a color on one project to meet contrast requirements and it still looked good in the end.",
+          "score_3": "Accessibility and visual design can conflict on things like contrast and sizing, you have to balance both requirements somehow in the final design. Though I haven't personally had to resolve a real conflict like that myself yet on a shipped project, I understand roughly why it comes up in practice for designers."
+        },
+        "probes": {
+          "definition_missing": "What actually makes a contrast ratio pass or fail WCAG guidelines?",
+          "mechanism_missing": "Walk me through how you'd redesign around a failing contrast issue.",
+          "tradeoff_missing": "What's the risk of treating accessibility as something to fix at the end?",
+          "experience_missing": "Have you actually resolved an accessibility versus design conflict yourself?"
+        }
+      },
+      {
+        "id": "uiux_hard_2",
+        "question": "Tell me about a hard design decision you had to make under real deadline pressure.",
+        "shape": "STAR",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "We were two days from a launch deadline when testing revealed our new navigation, which the team had already built and was proud of, was genuinely confusing for new users, while fine for people familiar with the old version. As lead designer, it was on me to decide whether to ship and iterate after, or push the timeline back to fix it first. I pulled together the session recordings, presented the tradeoff honestly including the cost of delay, and recommended shipping the old navigation behind a flag while we reworked the new one. We launched on time with the old pattern, and the reworked navigation shipped two weeks later fully tested, with none of the confusion showing up again.",
+          "score_6": "Right before a launch, testing showed our new navigation was confusing for new users even though the whole team liked it a lot. I had to decide whether to push the deadline or ship as-is, so I presented the tradeoffs honestly to the team, and we ended up keeping the old navigation temporarily while fixing the new one properly after the launch happened.",
+          "score_3": "Something like that happened once, there was a design issue close to a deadline and I had to make a call on what to do about it quickly. We ended up going with a safer option instead of rushing the original plan out, though I don't remember all the specifics now."
+        },
+        "probes": {
+          "situation_missing": "Set the scene — what was the issue and how close was the deadline?",
+          "task_missing": "What was your specific responsibility in making this call?",
+          "action_missing": "What did you actually decide and how did you present it?",
+          "result_missing": "What happened after — how did the actual launch go?"
+        }
+      }
+    ],
+    "cloud_aws": [
+      {
+        "id": "cloud_aws_easy_1",
+        "question": "When would you pick Lambda over something like ECS or EC2 for a workload?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "Lambda makes sense for short, event-driven, bursty workloads, like processing a file the moment it lands in S3, since you don't manage servers and only pay for actual execution time. ECS or EC2 make more sense for anything long-running, like a persistent web server or a worker that needs to hold state or a warm connection pool, because Lambda has cold-start latency and a hard execution time limit that doesn't fit that shape of workload. We used Lambda for image thumbnail generation triggered by uploads, but kept our main API on ECS since it needed persistent database connections.",
+          "score_6": "Lambda is good for short, event-driven tasks where you don't want to manage servers, and you only pay for the time it actually runs. ECS or EC2 make more sense for long-running services that need to keep state or a persistent connection open. We used Lambda for a background task that only runs occasionally, and kept our main service on ECS.",
+          "score_3": "Lambda is serverless and good for smaller tasks, ECS and EC2 are for things that run longer and need more control over the environment. I know the general idea behind the tradeoff, but I haven't actually picked between them myself for a real production project yet."
+        },
+        "probes": {
+          "definition_missing": "What actually causes Lambda's cold start, and why does it matter?",
+          "mechanism_missing": "Walk me through what happens when a Lambda function gets invoked.",
+          "tradeoff_missing": "What's the risk of using Lambda for something long-running anyway?",
+          "experience_missing": "Have you actually deployed something on Lambda yourself?"
+        }
+      },
+      {
+        "id": "cloud_aws_easy_2",
+        "question": "What's the actual difference between an IAM user and an IAM role, and why does that distinction matter for security?",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "An IAM user represents a specific person or application with long-term credentials, like an access key that stays valid until someone rotates or revokes it. A role has no permanent credentials at all, it's assumed temporarily by something, like an EC2 instance or another AWS service, and grants short-lived credentials that expire automatically. The security benefit is huge — if an EC2 instance uses a role instead of a hardcoded user's access key, there's no long-lived secret sitting on disk that could leak, since the credentials rotate automatically behind the scenes. We had an old script using a hardcoded IAM user's access key, and migrating it to an instance role removed that leaked-secret risk entirely.",
+          "score_6": "An IAM user has long-term credentials tied to a specific person or app, while a role is assumed temporarily and gives short-lived credentials that expire on their own. Using roles instead of hardcoded user keys reduces the risk of a leaked long-term secret sitting around somewhere on disk. We moved a script from a hardcoded key to a role specifically for that reason.",
+          "score_3": "IAM users are for people and roles are for temporary access I think, it matters for security somehow since long-term keys are riskier. Though I haven't worked with IAM permissions in enough depth to explain the exact distinction that well, I understand the rough idea behind it."
+        },
+        "probes": {
+          "definition_missing": "What actually happens when something 'assumes' a role technically?",
+          "mechanism_missing": "Walk me through why a hardcoded access key is riskier than a role.",
+          "tradeoff_missing": "What's the tradeoff of using roles everywhere versus just users?",
+          "experience_missing": "Have you actually configured IAM roles or users yourself?"
+        }
+      },
+      {
+        "id": "cloud_aws_moderate_1",
+        "question": "When would you pick DynamoDB over RDS for a new service, and what do you give up by doing that?",
+        "shape": "Technical",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-90",
+        "reference_answers": {
+          "score_9": "DynamoDB scales horizontally almost automatically and handles massive read and write throughput with predictable low latency, which makes it great for workloads with a known, simple access pattern, like looking up a user profile by ID. RDS gives you real relational features — joins, complex queries, transactions across tables — which DynamoDB either can't do or makes you awkwardly work around with denormalized data. What you give up with DynamoDB is flexibility, since you need to design your access patterns upfront before creating the table, and changing that later usually means a painful migration. On a project with a rapidly evolving data model, we stuck with Postgres since we didn't know our final query patterns yet.",
+          "score_6": "DynamoDB is good for workloads that need to scale a lot and have simple, known access patterns, since it handles throughput really well. RDS gives you actual relational features like joins and transactions that DynamoDB doesn't really support well. The tradeoff with DynamoDB is you need to know your access patterns ahead of time, since changing them later is harder than with a relational database.",
+          "score_3": "DynamoDB is more scalable and RDS is more relational with joins and things like that, so it depends on what kind of queries you need to run, though I haven't actually picked between the two myself on a real project."
+        },
+        "probes": {
+          "definition_missing": "What actually happens differently under the hood between the two when you scale up?",
+          "mechanism_missing": "Walk me through what 'designing your access pattern upfront' actually means for DynamoDB.",
+          "tradeoff_missing": "What's the risk of picking DynamoDB before you know your query patterns?",
+          "experience_missing": "Have you actually built something on DynamoDB or RDS yourself?"
+        }
+      },
+      {
+        "id": "cloud_aws_moderate_2",
+        "question": "Tell me about a time you reduced cloud costs on a project. What did you actually do?",
+        "shape": "STAR",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "Our monthly AWS bill had crept up noticeably over a few months without anyone tracking why, so I was asked to look into where the spend was going. I pulled up the cost explorer by service, and found a huge chunk was going to over-provisioned EC2 instances running at maybe ten percent CPU around the clock, plus old EBS volumes attached to terminated instances. I right-sized the instances down a tier, set up auto-scaling so capacity matched real traffic instead of a fixed peak estimate, and cleaned up the orphaned volumes. The changes cut our monthly bill by close to a third within the next cycle, with no impact on performance.",
+          "score_6": "Our AWS costs had gone up a lot over time, so I looked into the cost breakdown by service and found some EC2 instances that were oversized for what they actually needed to handle. I resized them down and set up auto-scaling instead of running fixed capacity constantly, which brought the monthly bill down noticeably after the change went out.",
+          "score_3": "Something like that happened once, costs were higher than expected and someone on the team looked into it and found some things that could be cleaned up easily. The bill came down after that fix went out, though I wasn't the one doing most of the actual investigation."
+        },
+        "probes": {
+          "situation_missing": "Set the scene — what prompted you to look into costs in the first place?",
+          "task_missing": "What was your role in investigating the spend?",
+          "action_missing": "What did you actually do, step by step, to reduce it?",
+          "result_missing": "How did you confirm the savings, and what changed afterward?"
+        }
+      },
+      {
+        "id": "cloud_aws_hard_1",
+        "question": "How would you actually design for a workload with unpredictable, spiky traffic, like a flash sale that goes from near-zero to massive load in minutes?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "The core problem is traditional auto-scaling reacts too slowly for a spike happening in minutes, since it takes time to detect the spike, launch instances, and pass health checks, by which point users have hit errors. I'd put a queue in front of anything that can tolerate delay, so load gets buffered instead of hammering backend capacity directly, and use serverless components like Lambda behind API Gateway for parts that scale near-instantly. For anything stateful, I'd pre-scale ahead of a known event using scheduled scaling rather than reactive metrics. On a ticket-sale system, we combined a queue with pre-warmed capacity based on the sale start time, since reactive scaling alone would've been too slow for the first minute.",
+          "score_6": "You'd want to use something like a queue to buffer incoming requests instead of hitting the backend directly, and use serverless components that can scale almost instantly for parts of the system that support it. For known events you can also pre-scale ahead of time instead of waiting for reactive auto-scaling to catch up, which is usually too slow for a sudden spike.",
+          "score_3": "You'd probably want some kind of auto-scaling and maybe a queue to handle the spike smoothly. Though I haven't actually designed a system for this kind of traffic pattern myself before on a real project, I understand the general idea behind why it matters for something like this."
+        },
+        "probes": {
+          "definition_missing": "Why exactly is reactive auto-scaling too slow for a sudden spike?",
+          "mechanism_missing": "Walk me through how a queue actually protects backend capacity here.",
+          "tradeoff_missing": "What's the tradeoff of pre-scaling ahead of a known event versus relying on reactive scaling?",
+          "experience_missing": "Have you actually designed for a spiky traffic pattern yourself?"
+        }
+      },
+      {
+        "id": "cloud_aws_hard_2",
+        "question": "What's the tradeoff between a multi-region disaster recovery setup and just running in one region with backups?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "A single-region setup with backups is simpler and cheaper, but if that region has an outage, you're down until you restore from backup elsewhere, which could take hours, and you'll likely lose data since the last backup. Multi-region setups keep a live copy elsewhere, so failover happens in minutes with much less data loss, but you're paying for duplicate infrastructure constantly, and handling replication lag adds real complexity. I'd only reach for multi-region if the cost of downtime justifies the extra spend, since for a lot of products an hour of rare downtime is cheaper than a live setup year-round. We kept payments multi-region but left internal tools single-region with backups.",
+          "score_6": "Single-region with backups is cheaper and simpler, but recovery takes longer if that region goes down, and you can lose some recent data. Multi-region setups let you fail over much faster with less data loss, but they cost more to run and add complexity around keeping data in sync across regions. It really depends on how costly downtime actually is for that particular service.",
+          "score_3": "Multi-region is more resilient but more expensive and complex, single-region with backups is simpler but riskier if there's an outage somewhere. So it depends on the situation and the cost of downtime, though I haven't actually set up a multi-region system myself on a real project before."
+        },
+        "probes": {
+          "definition_missing": "What actually happens during a failover in a multi-region setup?",
+          "mechanism_missing": "Walk me through the tradeoff in replication lag and consistency across regions.",
+          "tradeoff_missing": "What's the real cost difference between the two approaches?",
+          "experience_missing": "Have you actually worked on a disaster recovery setup yourself?"
+        }
+      }
+    ],
+    "product_manager": [
+      {
+        "id": "product_manager_easy_1",
+        "question": "Walk me through how you'd actually prioritize a backlog of ten feature requests with limited engineering time.",
+        "shape": "Technical",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "I'd score each request on something like RICE — reach, impact, confidence, and effort — rather than just going with whoever asked loudest or most recently, since that tends to reward the squeakiest wheel instead of the best use of the team's time. I'd also sanity-check the scores against the actual company goal for the quarter, since a high-scoring feature that doesn't move the metric we're actually trying to move isn't worth doing yet even if it scores well on paper. On a real backlog, using this method surfaced a small, low-effort fix that had way more reach than a flashier feature everyone assumed was the priority, and we shipped the smaller one first.",
+          "score_6": "I'd use a framework like RICE to score requests on reach, impact, confidence, and effort, so it's not just based on who asked loudest. I'd also check the scores against whatever the actual goal for the quarter is. Using something like this on a real backlog once helped surface a smaller, easier fix that mattered more than a flashier idea people assumed was the priority.",
+          "score_3": "I'd probably score things by impact and effort somehow to figure out what to tackle first. I know frameworks like RICE exist for this kind of thing, but I haven't used one formally myself yet on a real backlog, so I'm mostly going off what I've read about it."
+        },
+        "probes": {
+          "definition_missing": "What exactly goes into each part of a framework like RICE?",
+          "mechanism_missing": "Walk me through how you'd actually score a specific request using it.",
+          "tradeoff_missing": "What's the risk of prioritizing purely by who's asking the loudest?",
+          "experience_missing": "Have you actually used a prioritization framework yourself on a real backlog?"
+        }
+      },
+      {
+        "id": "product_manager_easy_2",
+        "question": "Tell me about a time you had to say no to a stakeholder who wanted something built.",
+        "shape": "STAR",
+        "difficulty": "easy",
+        "expected_answer_length_sec": "30-60",
+        "reference_answers": {
+          "score_9": "A sales lead wanted a custom integration built for one specific client to help close a large deal, but building it would've consumed nearly our whole sprint for something only that one client would use. I checked how many other prospects had asked for something similar, and it was basically none, so I told the sales lead directly I couldn't prioritize it this quarter and explained the tradeoff, showing what we'd have to drop to fit it in. Instead I proposed a smaller workaround using existing functionality that got the deal most of the way there, and the sales lead used that instead and still closed the deal.",
+          "score_6": "A sales lead wanted a custom integration built for just one client's deal, but it would've taken up most of our sprint for something only that client actually needed at all. I explained the tradeoff honestly to them and suggested a smaller workaround instead, and they ended up using that and still closed the deal without us building the full thing in the end.",
+          "score_3": "Something like that happened once, a stakeholder wanted something built and I had to push back on it a bit. We ended up finding some kind of alternative solution instead of building the original request, though I don't remember every specific detail of that conversation now."
+        },
+        "probes": {
+          "situation_missing": "Set the scene — what exactly was being requested and by whom?",
+          "task_missing": "What was your role in deciding whether to say yes or no?",
+          "action_missing": "What did you actually say or propose instead?",
+          "result_missing": "What happened after — how did the stakeholder react and what was the outcome?"
+        }
+      },
+      {
+        "id": "product_manager_moderate_1",
+        "question": "How would you actually define success metrics for a brand new feature before it launches?",
+        "shape": "Technical",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-90",
+        "reference_answers": {
+          "score_9": "I'd start from the actual problem the feature is meant to solve, not just from what's easy to measure, since it's tempting to default to something like total clicks even when clicks aren't really the thing that matters. I'd pick a primary metric tied directly to that problem, plus one or two guardrail metrics to make sure we're not accidentally hurting something else while improving the primary one, like watching churn while optimizing for engagement. On a notifications feature we shipped, the obvious metric was notification open rate, but the guardrail metric of unsubscribe rate mattered just as much, since a feature that drove opens by being annoying would've technically hit its primary goal while quietly damaging retention.",
+          "score_6": "I'd try to tie the metric to the actual problem the feature is solving rather than just picking something easy to measure like clicks. I'd also want a guardrail metric alongside the main one, to make sure we're not accidentally hurting something else while chasing the primary goal. We did something like this on a notifications feature, tracking open rate alongside unsubscribe rate as a check.",
+          "score_3": "You'd want to pick metrics that actually reflect the goal of the feature, and maybe a secondary metric as a check on the side. I know the general idea behind why this matters, but I haven't actually defined success metrics for a real launch myself yet on a project."
+        },
+        "probes": {
+          "definition_missing": "What makes a metric a good primary metric versus a vanity one here?",
+          "mechanism_missing": "Walk me through why you'd need a guardrail metric at all.",
+          "tradeoff_missing": "What's the risk of picking a metric that's easy to measure but not meaningful?",
+          "experience_missing": "Have you actually defined and tracked success metrics for a launch yourself?"
+        }
+      },
+      {
+        "id": "product_manager_moderate_2",
+        "question": "Tell me about a go or no-go decision you had to make close to a launch date.",
+        "shape": "STAR",
+        "difficulty": "moderate",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "Two days before a scheduled launch, QA found a bug where a specific payment method failed silently for about five percent of transactions instead of showing an error, meaning users could think a payment succeeded when it hadn't. I had to make the go or no-go call, since the engineering lead and I were the last checkpoint before it shipped. I gathered data on how many users used that payment method to understand the blast radius, weighed it against the cost of delaying an announced launch date, and decided to delay by two days rather than ship with a bug that could silently lose people money. We fixed it, launched two days late, and got zero payment complaints afterward.",
+          "score_6": "Right before a launch, QA found a bug affecting a small percentage of payment transactions silently and without any visible error shown. I had to decide whether to launch anyway or delay, so I looked at how many users would actually be affected and decided to delay a couple of days to fix it properly instead of risking losing people's money quietly.",
+          "score_3": "Something like that happened once, there was an issue found close to a launch date and I had to decide whether to go ahead or wait it out. We ended up delaying it a bit to fix things properly first before shipping it out to everyone."
+        },
+        "probes": {
+          "situation_missing": "Set the scene — what was the issue and how close to launch was it found?",
+          "task_missing": "What was your specific responsibility in making this call?",
+          "action_missing": "What did you actually do to make the decision, and what did you decide?",
+          "result_missing": "What happened after — how did the delayed launch actually go?"
+        }
+      },
+      {
+        "id": "product_manager_hard_1",
+        "question": "How do you actually think about the tradeoff between shipping fast and racking up technical debt?",
+        "shape": "Technical",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "Shipping fast and taking on debt is fine when it's a deliberate, informed choice, like cutting a corner to validate whether users want a feature before investing in the robust version, but it's dangerous when it becomes the default with no visibility into how much debt is accumulating. I try to make the tradeoff explicit, having engineering flag when a shortcut is taken and what it'll cost to fix later, so it becomes a real decision instead of debt quietly piling up until it causes an outage. On one product, we shipped an MVP with a known scaling limitation to hit a launch window, but wrote it down and revisited it the moment usage approached that limit.",
+          "score_6": "Shipping fast makes sense when you're validating something new and don't want to over-invest before knowing if it'll work, but it can become risky if debt piles up without anyone tracking it. I try to make sure shortcuts get flagged explicitly so they become a real decision rather than something that gets forgotten. We shipped something with a known limitation once and revisited it later once we knew it actually mattered.",
+          "score_3": "There's a tradeoff between speed and quality, sometimes you ship fast and deal with the debt later on down the road. Though I haven't personally had to manage that tradeoff myself on a real shipped product yet, I understand the general reasoning behind why teams do it."
+        },
+        "probes": {
+          "definition_missing": "What makes taking on technical debt a good decision versus a bad one here?",
+          "mechanism_missing": "Walk me through how you'd actually track debt so it doesn't pile up silently.",
+          "tradeoff_missing": "What's the risk of always defaulting to speed over quality?",
+          "experience_missing": "Have you actually made this tradeoff call yourself on a real product?"
+        }
+      },
+      {
+        "id": "product_manager_hard_2",
+        "question": "Tell me about a time two stakeholders wanted conflicting things and you had to resolve it.",
+        "shape": "STAR",
+        "difficulty": "hard",
+        "expected_answer_length_sec": "60-120",
+        "reference_answers": {
+          "score_9": "Engineering wanted to spend the quarter paying down infrastructure debt slowing every future feature down, while sales wanted a customer-facing feature promised to a big client, and both had reasons the other didn't fully appreciate. As the PM caught between them, it was on me to find a path forward instead of just picking one. I got both leads in a room together instead of relaying messages separately, had engineering quantify how much the debt was slowing future work, and had sales clarify how firm the deadline actually was. It turned out the debt work could be scoped to the highest-impact half, freeing up velocity and letting us fit in a scaled-down feature too, and both sides left feeling heard.",
+          "score_6": "Engineering wanted to focus on paying down technical debt while sales wanted a specific feature for a client, and I had to find a way to balance both needs. I got both sides together to talk it through directly instead of going back and forth separately, and we ended up scoping down both asks so we could fit in a bit of each instead of picking just one.",
+          "score_3": "Something like that happened once, two teams wanted different things from the roadmap and I had to help figure out a way forward between them somehow. We ended up finding some kind of compromise that worked reasonably well for both sides eventually, though I don't remember every detail of it now."
+        },
+        "probes": {
+          "situation_missing": "Set the scene — what exactly did each side want and why did it conflict?",
+          "task_missing": "What was your specific role in resolving this?",
+          "action_missing": "What did you actually do to bring both sides together?",
+          "result_missing": "What was the actual outcome, and how did each side react to it?"
         }
       }
     ]

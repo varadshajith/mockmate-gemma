@@ -34,8 +34,8 @@ Then open <http://localhost:8000>.
 
 ## Rounds
 
-Two rounds, both spoken: **Behavioral** and **System Design**. Internally they
-are keyed `behavioral` and `systemDesign` in `roundScores` and in the question
+Two rounds, both spoken: **Behavioral** and **Technical**. Internally they
+are keyed `behavioral` and `systemDesign` (or `technical`) in `roundScores` and in the question
 bank. There is no MCQ round and no typed coding round — both rounds use the
 identical transcript panel that the microphone writes into.
 

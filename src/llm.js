@@ -5,12 +5,12 @@
  * nowhere else. evaluate(), followup(), and recommend() are all wired to
  * llama-server.
  *
- * The only network calls in this file target llama-server on localhost —
+ * The only network calls in this file target llama-server —
  * there must never be a call to any other host.
  */
 
 const LLM = (() => {
-  const LLAMA_SERVER_URL = "http://localhost:8080";
+  const LLAMA_SERVER_URL = "http://192.168.137.123:8080";
   const EVALUATE_GRAMMAR_PATH = "grammars/evaluate.gbnf";
   const FOLLOWUP_GRAMMAR_PATH = "grammars/followup.gbnf";
   const RECOMMEND_GRAMMAR_PATH = "grammars/recommend.gbnf";
@@ -162,11 +162,11 @@ const LLM = (() => {
     "Penalise vagueness heavily. Penalise \"we\" where \"I\" is expected: if the candidate describes the team's actions instead of their own, the Action dimension scores low no matter how impressive the project sounds."
   ].join("\n");
 
-  // definition / mechanism / tradeoff / experience, for the System Design
+  // definition / mechanism / tradeoff / experience, for the Technical
   // round. Tradeoff is called out as the discriminator on purpose — it is the
   // dimension a candidate cannot pass by reciting a memorised definition.
-  const SYSTEM_DESIGN_RUBRIC = [
-    "Grade this System Design answer against four dimensions. Score each, then weigh them into one 0-100 score:",
+  const TECHNICAL_RUBRIC = [
+    "Grade this Technical answer against four dimensions. Score each, then weigh them into one 0-100 score:",
     "- Definition: do they define the thing correctly?",
     "- Mechanism: can they explain how it actually works, not just what it is called?",
     "- Tradeoff: do they name what it COSTS, not only what it gives?",
@@ -184,7 +184,7 @@ const LLM = (() => {
   ].join("\n");
 
   function buildEvaluatePrompt(req) {
-    const isSystemDesign = req.category === "System Design";
+    const isTechnical = req.category === "Technical" || req.category === "System Design";
     const probeUsed = req.probeUsed === true;
     return [
       "You are an interview coach grading a candidate's spoken interview answer.",
@@ -194,11 +194,11 @@ const LLM = (() => {
       `Reference answer: ${req.modelAnswer || "(none provided)"}`,
       `Candidate's answer: ${req.userAnswer}`,
       "",
-      isSystemDesign ? SYSTEM_DESIGN_RUBRIC : BEHAVIORAL_RUBRIC,
+      isTechnical ? TECHNICAL_RUBRIC : BEHAVIORAL_RUBRIC,
       "",
       HONESTY_INSTRUCTION,
       "",
-      isSystemDesign
+      isTechnical
         ? "Set \"complexity\" to the real time/space complexity implied by the candidate's proposed design (e.g. \"O(n) time, O(1) space\"), derived from what they actually described. Do not use a placeholder value."
         : "Set \"complexity\" to null.",
       "",
@@ -216,7 +216,7 @@ const LLM = (() => {
   /**
    * Score one answer.
    * @param {{question:string, userAnswer:string, modelAnswer:string, category:string, probeUsed?:boolean}} req
-   *        category is "Behavioral" or "System Design". probeUsed indicates whether a
+   *        category is "Behavioral" or "Technical". probeUsed indicates whether a
    *        clarifying probe has already been used on the current topic (defaults to false).
    * @returns {Promise<{score:number, strengths:string[], improvements:string[], modelAnswer:string, complexity:string|null, feedback:string, levelSignal:("step_up"|"stay"|"probe"|"step_down")}>}
    */
@@ -237,7 +237,7 @@ const LLM = (() => {
       throw new Error(`evaluate(): model returned non-numeric score "${parsed.score}"`);
     }
 
-    const isSystemDesign = req.category === "System Design";
+    const isTechnical = req.category === "Technical" || req.category === "System Design";
     const levelSignal = deriveLevelSignal(parsed.score, req.probeUsed === true);
 
     // The model also emits a levelSignal, but the JS derivation above is

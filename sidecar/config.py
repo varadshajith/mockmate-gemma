@@ -98,7 +98,7 @@ PW_PLAY_ARGS = ("--rate", str(PIPER_SAMPLE_RATE), "--channels", str(PIPER_CHANNE
                 "--format", "s16", "--raw", "-")
 
 # --- llama-server ----------------------------------------------------------
-LLAMA_SERVER_URL = os.environ.get("LLAMA_SERVER_URL", "http://192.168.137.123:8080")
+LLAMA_SERVER_URL = os.environ.get("LLAMA_SERVER_URL", "http://127.0.0.1:8080")
 TRANSCRIBE_TIMEOUT_S = 120
 
 # --- WebSocket -------------------------------------------------------------

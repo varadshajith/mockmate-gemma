@@ -10,7 +10,14 @@
  */
 
 const LLM = (() => {
-  const LLAMA_SERVER_URL = "http://192.168.137.123:8080";
+  const DEFAULT_LLAMA_SERVER_URL = "http://127.0.0.1:8080";
+  // Static browser code cannot read environment variables. Development hosts
+  // may inject this global before loading src/llm.js; normal app loads use
+  // loopback default.
+  const browserDevOverride = typeof window !== "undefined" ? window.__LLAMA_SERVER_URL__ : null;
+  const LLAMA_SERVER_URL = typeof browserDevOverride === "string" && browserDevOverride.trim()
+    ? browserDevOverride.trim()
+    : DEFAULT_LLAMA_SERVER_URL;
   const EVALUATE_GRAMMAR_PATH = "grammars/evaluate.gbnf";
   const FOLLOWUP_GRAMMAR_PATH = "grammars/followup.gbnf";
   const RECOMMEND_GRAMMAR_PATH = "grammars/recommend.gbnf";

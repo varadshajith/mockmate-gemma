@@ -532,27 +532,6 @@ function viewLanding() {
         </div>
       </section>
       
-      <section class="landing-stats-section">
-        <div class="landing-stats-grid">
-          <div class="stat-item scroll-reveal-item">
-            <h3>15,000+</h3>
-            <p>Mock Interviews Completed</p>
-          </div>
-          <div class="stat-item scroll-reveal-item">
-            <h3>94%</h3>
-            <p>Placement Success Rate</p>
-          </div>
-          <div class="stat-item scroll-reveal-item">
-            <h3>32%</h3>
-            <p>Confidence Level Increase</p>
-          </div>
-          <div class="stat-item scroll-reveal-item">
-            <h3>24/7</h3>
-            <p>Mentorship availability</p>
-          </div>
-        </div>
-      </section>
-      
       <section class="landing-features" id="features">
         <div class="section-header scroll-reveal">
           <h2>Everything you need to get placement-ready</h2>
@@ -573,6 +552,21 @@ function viewLanding() {
             <div class="feature-icon-wrapper"><i data-lucide="pie-chart"></i></div>
             <h3>AI Feedback Reports</h3>
             <p>Detailed analysis mapping technical clarity, strengths, suggestions for improvement, and ideal answers.</p>
+          </div>
+          <div class="feature-box scroll-reveal-item">
+            <div class="feature-icon-wrapper purple"><i data-lucide="mic"></i></div>
+            <h3>Smart Interruption & Probing</h3>
+            <p>Experience true-to-life pacing. The interviewer detects when you finish speaking or interrupts to probe deeper, simulating real interview pressure.</p>
+          </div>
+          <div class="feature-box scroll-reveal-item">
+            <div class="feature-icon-wrapper"><i data-lucide="shield-check"></i></div>
+            <h3>Contradiction Checks</h3>
+            <p>Verifies that your story holds up. The AI remembers what you said previously and calls out any inconsistent statements.</p>
+          </div>
+          <div class="feature-box scroll-reveal-item">
+            <div class="feature-icon-wrapper purple"><i data-lucide="layout"></i></div>
+            <h3>Visual Rubric Statecard</h3>
+            <p>Real-time visual tracking of your structure. Watch checklist slots (STAR for behavioral, DMTE for technical) dynamically update from unfilled to vague to completed as you speak.</p>
           </div>
         </div>
       </section>
@@ -672,6 +666,7 @@ function initScrollReveal() {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         if (entry.target.classList.contains("grid-3") || 
+            entry.target.classList.contains("features-centered-row") || 
             entry.target.classList.contains("how-it-works-grid") || 
             entry.target.classList.contains("faq-list") ||
             entry.target.classList.contains("landing-stats-grid")) {
@@ -689,7 +684,7 @@ function initScrollReveal() {
   }, observerOptions);
 
   document.querySelectorAll(".scroll-reveal").forEach(el => observer.observe(el));
-  document.querySelectorAll(".landing-stats-grid, .landing-features .grid-3, .how-it-works-grid, .faq-list").forEach(grid => {
+  document.querySelectorAll(".landing-stats-grid, .landing-features .grid-3, .features-centered-row, .how-it-works-grid, .faq-list").forEach(grid => {
     observer.observe(grid);
   });
 }
@@ -707,6 +702,127 @@ function viewDashboard() {
   const totalCompleted = APP_STATE.history.length;
   const avgScore = totalCompleted > 0 ? Math.round(APP_STATE.history.reduce((a, b) => a + b.score, 0) / totalCompleted) : 0;
   
+  // 1. Calculate active streak
+  function calculateStreak(history) {
+    if (!history || history.length === 0) return 0;
+    const dates = Array.from(new Set(history.map(h => h.date))).sort().reverse();
+    if (dates.length === 0) return 0;
+    
+    const parseLocalDate = (dateStr) => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    const mostRecentDate = parseLocalDate(dates[0]);
+    mostRecentDate.setHours(0, 0, 0, 0);
+    
+    if (mostRecentDate.getTime() !== today.getTime() && mostRecentDate.getTime() !== yesterday.getTime()) {
+      return 0;
+    }
+    
+    let streak = 1;
+    let currentDate = mostRecentDate;
+    
+    for (let i = 1; i < dates.length; i++) {
+      const prevDate = parseLocalDate(dates[i]);
+      prevDate.setHours(0, 0, 0, 0);
+      
+      const diffTime = currentDate.getTime() - prevDate.getTime();
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 1) {
+        streak++;
+        currentDate = prevDate;
+      } else if (diffDays > 1) {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  const streak = calculateStreak(APP_STATE.history);
+  const uniqueDates = Array.from(new Set(APP_STATE.history.map(h => h.date)));
+  const todayStr = new Date().toISOString().split('T')[0];
+  const metToday = uniqueDates.includes(todayStr);
+  let streakTrendText = "";
+  let streakTrendIcon = "";
+  if (metToday) {
+    streakTrendText = "Goal met today";
+    streakTrendIcon = "check";
+  } else {
+    if (streak > 0) {
+      streakTrendText = "Practice today to keep your streak!";
+      streakTrendIcon = "flame";
+    } else {
+      streakTrendText = "Practice today to start a streak";
+      streakTrendIcon = "calendar";
+    }
+  }
+
+  const uniqueRoles = Array.from(new Set(APP_STATE.history.map(h => h.role)));
+  const totalRoles = uniqueRoles.length;
+  let rolesTrendText = "Ready to start prep";
+  if (APP_STATE.history.length > 0) {
+    let latestRole = APP_STATE.history[0].role;
+    if (latestRole.length > 18) {
+      latestRole = latestRole.substring(0, 15) + "...";
+    }
+    rolesTrendText = `Latest: ${latestRole}`;
+  }
+
+  // Calculate dynamic weekly trends (last 7 days)
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  oneWeekAgo.setHours(0, 0, 0, 0);
+
+  const parseLocalDate = (dateStr) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
+  const completedThisWeek = APP_STATE.history.filter(h => {
+    const hDate = parseLocalDate(h.date);
+    hDate.setHours(0, 0, 0, 0);
+    return hDate >= oneWeekAgo;
+  }).length;
+  const completedTrendText = `+${completedThisWeek} this week`;
+
+  const minutesThisWeek = APP_STATE.history.reduce((sum, h) => {
+    const hDate = parseLocalDate(h.date);
+    hDate.setHours(0, 0, 0, 0);
+    const mins = parseInt(h.duration, 10);
+    if (!isNaN(mins) && hDate >= oneWeekAgo) {
+      return sum + mins;
+    }
+    return sum;
+  }, 0);
+  const hoursThisWeek = (minutesThisWeek / 60).toFixed(1);
+  const hoursSpentTrendText = `+${hoursThisWeek}h practice`;
+
+  // Calculate Avg Score progress vs previous sessions
+  let progressText = "No previous data";
+  let progressIcon = "trending-up";
+  let progressClass = "up";
+  if (APP_STATE.history.length >= 2) {
+    const latestScore = APP_STATE.history[0].score;
+    const previousMocks = APP_STATE.history.slice(1);
+    const prevAvg = Math.round(previousMocks.reduce((sum, h) => sum + h.score, 0) / previousMocks.length);
+    const diff = latestScore - prevAvg;
+    progressText = `${diff >= 0 ? '+' : ''}${diff}% vs roll avg`;
+    progressIcon = diff >= 0 ? "trending-up" : "trending-down";
+    progressClass = diff >= 0 ? "up" : "down";
+  } else if (APP_STATE.history.length === 1) {
+    progressText = "First session completed";
+    progressIcon = "award";
+    progressClass = "up";
+  }
+
   view.innerHTML = `
     <div class="dashboard-grid">
       <div class="dashboard-main-col">
@@ -726,38 +842,35 @@ function viewDashboard() {
         <!-- Summary stats -->
         <div class="stats-summary-grid">
           <div class="stat-card">
-            <div class="stat-card-icon blue"><i data-lucide="play-circle"></i></div>
-            <div class="stat-card-details">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
               <h4>Completed</h4>
+              <div class="stat-card-icon blue"><i data-lucide="play-circle"></i></div>
+            </div>
+            <div class="stat-card-details">
               <div class="stat-value">${totalCompleted}</div>
-              <div class="stat-trend up"><i data-lucide="trending-up"></i> +1 this week</div>
+              <div class="stat-trend up"><i data-lucide="trending-up"></i> ${completedTrendText}</div>
             </div>
           </div>
           
           <div class="stat-card">
-            <div class="stat-card-icon green"><i data-lucide="award"></i></div>
-            <div class="stat-card-details">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
               <h4>Avg Score</h4>
+              <div class="stat-card-icon green"><i data-lucide="award"></i></div>
+            </div>
+            <div class="stat-card-details">
               <div class="stat-value">${avgScore}%</div>
-              <div class="stat-trend up"><i data-lucide="trending-up"></i> +4% progress</div>
+              <div class="stat-trend ${progressClass}"><i data-lucide="${progressIcon}"></i> ${progressText}</div>
             </div>
           </div>
           
           <div class="stat-card">
-            <div class="stat-card-icon orange"><i data-lucide="flame"></i></div>
-            <div class="stat-card-details">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
               <h4>Streak</h4>
-              <div class="stat-value">4 Days</div>
-              <div class="stat-trend up"><i data-lucide="check"></i> Goal met today</div>
+              <div class="stat-card-icon orange"><i data-lucide="flame"></i></div>
             </div>
-          </div>
-          
-          <div class="stat-card">
-            <div class="stat-card-icon purple"><i data-lucide="hourglass"></i></div>
             <div class="stat-card-details">
-              <h4>Hours Spent</h4>
-              <div class="stat-value">6.8h</div>
-              <div class="stat-trend up"><i data-lucide="trending-up"></i> +1.2h practice</div>
+              <div class="stat-value">${streak} Day${streak === 1 ? '' : 's'}</div>
+              <div class="stat-trend up"><i data-lucide="${streakTrendIcon}"></i> ${streakTrendText}</div>
             </div>
           </div>
         </div>
@@ -1075,10 +1188,14 @@ function viewSetupWizard() {
   }
 
   nextBtn.addEventListener("click", () => {
+    if (typeof window.saveSetupContext === "function") { window.saveSetupContext(); }
     if (currentStep < 5) { currentStep++; renderStep(); }
     else { persistSetupContext(); startInterviewSession(setupData); }
   });
-  backBtn.addEventListener("click", () => { if (currentStep > 1) { currentStep--; renderStep(); } });
+  backBtn.addEventListener("click", () => {
+    if (typeof window.saveSetupContext === "function") { window.saveSetupContext(); }
+    if (currentStep > 1) { currentStep--; renderStep(); }
+  });
 
   renderStep();
 }

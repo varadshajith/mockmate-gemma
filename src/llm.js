@@ -68,6 +68,40 @@ const LLM = (() => {
   }
 
   /**
+   * POST to llama-server's OpenAI-compatible chat endpoint. This is used only
+   * when evaluate() is given local WAV audio; every other text-model request
+   * remains on /completion.
+   */
+  async function postChatCompletion(fnName, body) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let res;
+    try {
+      res = await fetch(`${LLAMA_SERVER_URL}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        throw new Error(
+          `${fnName}(): llama-server did not respond within ${REQUEST_TIMEOUT_MS}ms — request timed out.`
+        );
+      }
+      throw new Error(`${fnName}(): could not reach llama-server at ${LLAMA_SERVER_URL} — ${err.message}`);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!res.ok) {
+      throw new Error(`${fnName}(): llama-server /v1/chat/completions failed: ${res.status} ${res.statusText}`);
+    }
+    return res.json();
+  }
+
+  /**
    * Pull the generated text out of a llama-server response and JSON.parse it.
    * Both steps can fail on a well-formed HTTP 200 (unexpected envelope shape,
    * or output truncated at the n_predict ceiling mid-object), so both are
@@ -84,6 +118,27 @@ const LLM = (() => {
     } catch (err) {
       throw new Error(
         `${fnName}(): could not parse model output as JSON (${err.message}) — raw response: ${excerpt(data.content)}`
+      );
+    }
+  }
+
+  function parseChatCompletionContent(fnName, data) {
+    const choice = data?.choices?.[0];
+    if (!choice || typeof choice.message?.content !== "string") {
+      throw new Error(
+        `${fnName}(): llama-server response had no choices[0].message.content string — got ${excerpt(JSON.stringify(data))}`
+      );
+    }
+    if (choice.finish_reason !== "stop") {
+      throw new Error(
+        `${fnName}(): llama-server chat response finished as "${choice.finish_reason}" instead of "stop" — refusing partial grading output.`
+      );
+    }
+    try {
+      return JSON.parse(choice.message.content);
+    } catch (err) {
+      throw new Error(
+        `${fnName}(): could not parse model output as JSON (${err.message}) — raw response: ${excerpt(choice.message.content)}`
       );
     }
   }
@@ -193,6 +248,8 @@ const LLM = (() => {
       `Question: ${req.question}`,
       `Reference answer: ${req.modelAnswer || "(none provided)"}`,
       `Candidate's answer: ${req.userAnswer}`,
+      "The complete answer is the transcript above.",
+      "An audio clip may also be attached. It is the closing portion of this answer; listen to it for what the transcript cannot carry. Do not treat it as the complete answer.",
       "",
       isSystemDesign ? SYSTEM_DESIGN_RUBRIC : BEHAVIORAL_RUBRIC,
       "",
@@ -215,23 +272,53 @@ const LLM = (() => {
 
   /**
    * Score one answer.
-   * @param {{question:string, userAnswer:string, modelAnswer:string, category:string, probeUsed?:boolean}} req
+   * @param {{question:string, userAnswer:string, modelAnswer:string, category:string, probeUsed?:boolean, audioB64?:string}} req
    *        category is "Behavioral" or "System Design". probeUsed indicates whether a
    *        clarifying probe has already been used on the current topic (defaults to false).
-   * @returns {Promise<{score:number, strengths:string[], improvements:string[], modelAnswer:string, complexity:string|null, feedback:string, levelSignal:("step_up"|"stay"|"probe"|"step_down")}>}
+   * @returns {Promise<{score:number, strengths:string[], improvements:string[], modelAnswer:string, complexity:string|null, feedback:string, levelSignal:("step_up"|"stay"|"probe"|"step_down"), gradedFrom:("text"|"audio+text")}>}
    */
   async function evaluate(req) {
     const grammar = await loadEvaluateGrammar();
     const prompt = buildEvaluatePrompt(req);
+    let parsed;
+    let gradedFrom = "text";
 
-    const data = await postCompletion("evaluate", {
-      prompt,
-      grammar,
-      temperature: 0.2,
-      n_predict: 700,
-      stream: false
-    });
-    const parsed = parseCompletionContent("evaluate", data);
+    if (typeof req.audioB64 === "string" && req.audioB64.trim()) {
+      try {
+        const data = await postChatCompletion("evaluate", {
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "input_audio", input_audio: { data: req.audioB64, format: "wav" } }
+            ]
+          }],
+          // Same grammar source and same prompt as the text-only path.
+          grammar,
+          temperature: 0.2,
+          max_tokens: 700,
+          stream: false,
+          // Required: without this llama-server may spend its completion
+          // budget on reasoning and return no usable JSON.
+          chat_template_kwargs: { enable_thinking: false }
+        });
+        parsed = parseChatCompletionContent("evaluate", data);
+        gradedFrom = "audio+text";
+      } catch (audioError) {
+        console.warn(`evaluate(): audio grading failed; falling back to text-only grading — ${audioError.message}`);
+      }
+    }
+
+    if (!parsed) {
+      const data = await postCompletion("evaluate", {
+        prompt,
+        grammar,
+        temperature: 0.2,
+        n_predict: 700,
+        stream: false
+      });
+      parsed = parseCompletionContent("evaluate", data);
+    }
 
     if (typeof parsed.score !== "number") {
       throw new Error(`evaluate(): model returned non-numeric score "${parsed.score}"`);
@@ -260,7 +347,8 @@ const LLM = (() => {
       modelAnswer: req.modelAnswer || parsed.modelAnswer || "",
       complexity: isSystemDesign ? (parsed.complexity || null) : null,
       feedback: parsed.feedback || "",
-      levelSignal
+      levelSignal,
+      gradedFrom
     };
   }
 

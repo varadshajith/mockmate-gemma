@@ -80,6 +80,9 @@ A user who sees an invented score has been lied to about their own
 performance. That is the single worst thing this app can do, which is why this
 is rule 1.
 
+Never report predicted behaviour as observed. If a test did not run,
+say it did not run. Code reading is not verification.
+
 ## Rule 2 — Offline only
 
 The app must work with the network physically switched off. Nothing may leave

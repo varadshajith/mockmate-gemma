@@ -1,0 +1,16 @@
+=== checkSlots() Stop Point A: Standalone Test ===
+
+
+--- B1: Strong STAR, all slots covered ---
+
+--- B2: Rambling, no Result — should trigger interruption ---
+
+--- T1: Solid technical, all slots ---
+
+--- T2: Definition only — key slot (Tradeoff) missing ---
+
+--- T3: Has experience but no mechanism or tradeoff ---
+
+=== Summary ===
+Key slot accuracy: 0/5
+=== End ===

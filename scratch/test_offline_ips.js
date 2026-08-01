@@ -15,11 +15,11 @@ function isCommentLine(line) {
 
 function visit(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "vendor") continue;
+    if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "vendor" || entry.name === ".venv" || entry.name === "models") continue;
     const fullPath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
       visit(fullPath);
-    } else if (entry.isFile() && (entry.name.endsWith(".js") || entry.name.endsWith(".py"))) {
+    } else if (entry.isFile() && (entry.name.endsWith(".js") || entry.name.endsWith(".py") || entry.name.endsWith(".md"))) {
       const lines = fs.readFileSync(fullPath, "utf8").split(/\r?\n/);
       lines.forEach((line, index) => {
         if (isCommentLine(line)) return;

@@ -1,0 +1,2 @@
+{"entryCount":50,"elapsedMs":30.940519999999992,"matchCount":3,"dimensions":768}
+{"entryCount":200,"elapsedMs":74.95222500000003,"matchCount":3,"dimensions":768}

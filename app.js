@@ -97,6 +97,140 @@ function createFreshState(overrides = {}) {
 
 let APP_STATE = createFreshState();
 
+// ==========================================
+// Question Bank Data & Lookup Engine
+// (Directly fetched from interview_questions.json)
+// ==========================================
+const ROLES = [
+  { id: "frontend",       name: "Frontend Developer",     icon: "code-2",      domain: "Web",         authored: true, fallback: "frontend" },
+  { id: "backend",        name: "Backend Developer",      icon: "database",    domain: "Web",         authored: true, fallback: "backend"  },
+  { id: "fullstack",      name: "Full Stack Developer",   icon: "layers",      domain: "Web",         authored: true, fallback: "frontend" },
+  { id: "data-analyst",   name: "Data Analyst",        icon: "bar-chart-3", domain: "Data",        authored: true, fallback: "backend"  },
+  { id: "data-scientist", name: "Data Scientist",    icon: "brain",       domain: "Data/ML",     authored: true, fallback: "genai"    },
+  { id: "genai",          name: "GenAI / LLM Engineer",   icon: "sparkles",    domain: "AI",          authored: true, fallback: "genai"    },
+  { id: "agentic",        name: "Agentic AI Engineer",    icon: "bot",         domain: "AI",          authored: true, fallback: "genai"    },
+  { id: "devops",         name: "DevOps / SRE",           icon: "server",      domain: "Infra",       authored: true, fallback: "backend"  },
+  { id: "cyber",          name: "Cybersecurity Analyst",  icon: "shield",      domain: "Infra",       authored: true, fallback: "backend"  },
+  { id: "mobile",         name: "Mobile Developer",       icon: "smartphone",  domain: "App",         authored: true, fallback: "frontend" },
+  { id: "uiux",           name: "UI/UX Designer",         icon: "palette",     domain: "Design",      authored: true, fallback: "hr"       },
+  { id: "cloud",          name: "Cloud / AWS Engineer",   icon: "cloud",       domain: "Infra",       authored: true, fallback: "backend"  },
+  { id: "pm",             name: "Product Manager",        icon: "briefcase",   domain: "Product",     authored: true, fallback: "hr"       },
+  { id: "hr",             name: "HR & Behavioral",        icon: "users",       domain: "Soft Skills", authored: true, fallback: "hr"       }
+];
+
+const LEVEL_RULES = {
+  easy:     { label: "Easy",     tag: "Fresher / Entry Level", color: "green",
+              behavioralCount: 2, behavioralTimer: 8 * 60,  systemDesignCount: 1, systemDesignTimer: 8 * 60,  technicalCount: 1, technicalTimer: 8 * 60,  pass: 50 },
+  medium:   { label: "Medium",   tag: "Mid-Level / 1-3 Years", color: "amber",
+              behavioralCount: 3, behavioralTimer: 12 * 60, systemDesignCount: 1, systemDesignTimer: 12 * 60, technicalCount: 1, technicalTimer: 12 * 60, pass: 60 },
+  advanced: { label: "Advanced", tag: "Senior / 3+ Years",     color: "red",
+              behavioralCount: 4, behavioralTimer: 15 * 60, systemDesignCount: 2, systemDesignTimer: 20 * 60, technicalCount: 2, technicalTimer: 20 * 60, pass: 70 }
+};
+
+const LEVEL_TOPICS = {
+  frontend:       { easy: "HTML tags, CSS selectors, JS basics, DOM", medium: "React hooks, closures, Flexbox/Grid, state", advanced: "SSR/CSR, Webpack, performance APIs, micro-frontends" },
+  backend:        { easy: "HTTP methods, REST, JSON, status codes",   medium: "Middleware, JWT/OAuth, SQL joins, indexing",   advanced: "Microservices, queues, CQRS, rate limiting" },
+  fullstack:      { easy: "SSR vs CSR, REST vs GraphQL, data flow",   medium: "Monorepos, cross-stack debugging, state sync",  advanced: "Cross-layer auth, optimistic UI, tracing" },
+  "data-analyst": { easy: "INNER vs LEFT JOIN, dashboard metrics",    medium: "Active user definitions, stakeholder data",    advanced: "A/B test evaluation, Simpson paradox" },
+  "data-scientist":{ easy: "Feature scaling, overfitting concepts",   medium: "XGBoost vs neural nets, model drift",          advanced: "A/B recommendation, feature leakage" },
+  genai:          { easy: "Transformers, tokenization, prompt types", medium: "Attention, RAG, embeddings, vector DBs",       advanced: "LoRA/QLoRA, RLHF, agents, eval at scale" },
+  agentic:        { easy: "Tool use, ReAct planning loops",          medium: "Short vs long memory, handling agent failures", advanced: "Agent guardrails, tool permissions, infinite loops" },
+  devops:         { easy: "CI/CD pipelines, observability basics",    medium: "Infrastructure as Code, incident response",    advanced: "Canary vs blue-green, alert fatigue" },
+  cyber:          { easy: "AuthN vs AuthZ, SQL injection prevention", medium: "Threat modeling, incident response",          advanced: "JWT security flaws, defense in depth" },
+  mobile:         { easy: "iOS vs Android, app lifecycle states",     medium: "Offline-first design, battery & memory leaks",  advanced: "Background sync, state persistence" },
+  uiux:           { easy: "Design process, user research findings",   medium: "Design system trade-offs, stakeholder buy-in", advanced: "Accessibility vs visual design, constraints" },
+  cloud:          { easy: "Lambda vs ECS/EC2, IAM roles",             medium: "DynamoDB vs RDS, cloud cost optimization",      advanced: "Unpredictable workloads, multi-region DR" },
+  pm:             { easy: "Backlog prioritization, saying no",        medium: "Product success metrics, launch go/no-go",     advanced: "Speed vs tech debt, conflicting priorities" },
+  hr:             { easy: "Etiquette, teamwork, self-intro",          medium: "Conflict resolution, STAR, leadership",       advanced: "Org culture, exec communication, negotiation" }
+};
+
+const DOMAIN_TO_ROLE_MAP = {
+  "frontend": "frontend",
+  "backend": "backend",
+  "full_stack": "fullstack",
+  "data_analyst": "data-analyst",
+  "data_scientist": "data-scientist",
+  "genai": "genai",
+  "agentic_ai": "agentic",
+  "devops_sre": "devops",
+  "cybersecurity": "cyber",
+  "mobile": "mobile",
+  "uiux": "uiux",
+  "cloud_aws": "cloud",
+  "product_manager": "pm",
+  "hr": "hr",
+  "system_design": "system_design"
+};
+
+const QUESTION_BANK = {};
+
+function getRole(roleId) {
+  return ROLES.find(r => r.id === roleId) || ROLES[0];
+}
+
+function getLevelRules(level) {
+  return LEVEL_RULES[level] || LEVEL_RULES.easy;
+}
+
+function getRoundQuestions(roleId, level, round) {
+  const role = getRole(roleId);
+  const sourceId = QUESTION_BANK[roleId] ? roleId : role.fallback;
+  const lvl = QUESTION_BANK[sourceId] && QUESTION_BANK[sourceId][level];
+  const roundKey = (round === "technical" || round === "systemDesign") ? (lvl && lvl.technical ? "technical" : "systemDesign") : round;
+  let arr = lvl && lvl[roundKey] ? [...lvl[roundKey]] : [];
+
+  if (arr.length === 0) {
+    if (round === "behavioral") {
+      const hrLvl = QUESTION_BANK["hr"] && QUESTION_BANK["hr"][level];
+      arr = (hrLvl && hrLvl["behavioral"]) ? [...hrLvl["behavioral"]] : [];
+    } else {
+      const sdLvl = QUESTION_BANK["system_design"] && QUESTION_BANK["system_design"][level];
+      const sdKey = sdLvl && sdLvl.technical ? "technical" : "systemDesign";
+      arr = (sdLvl && sdLvl[sdKey]) ? [...sdLvl[sdKey]] : [];
+    }
+  } else {
+    const reqCount = LEVEL_RULES[level] ? (round === "behavioral" ? LEVEL_RULES[level].behavioralCount : (LEVEL_RULES[level].technicalCount || LEVEL_RULES[level].systemDesignCount)) : 1;
+    if (round === "behavioral" && arr.length < reqCount) {
+      const hrLvl = QUESTION_BANK["hr"] && QUESTION_BANK["hr"][level];
+      const hrArr = (hrLvl && hrLvl["behavioral"]) ? hrLvl["behavioral"] : [];
+      arr = [...arr, ...hrArr];
+    } else if (round !== "behavioral" && arr.length < reqCount) {
+      const sdLvl = QUESTION_BANK["system_design"] && QUESTION_BANK["system_design"][level];
+      const sdKey = sdLvl && sdLvl.technical ? "technical" : "systemDesign";
+      const sdArr = (sdLvl && sdLvl[sdKey]) ? sdLvl[sdKey] : [];
+      arr = [...arr, ...sdArr];
+    }
+  }
+
+  if (round === "behavioral") {
+    const reqCount = LEVEL_RULES[level] ? LEVEL_RULES[level].behavioralCount : 2;
+    if (arr.length < reqCount) {
+      for (const l of ["easy", "medium", "advanced"]) {
+        if (arr.length >= reqCount) break;
+        const extra = QUESTION_BANK["hr"] && QUESTION_BANK["hr"][l] && QUESTION_BANK["hr"][l]["behavioral"];
+        if (extra) {
+          for (const q of extra) {
+            if (!arr.some(item => item.text === q.text)) {
+              arr.push(q);
+              if (arr.length >= reqCount) break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return arr;
+}
+
+window.ROLES = ROLES;
+window.LEVEL_RULES = LEVEL_RULES;
+window.LEVEL_TOPICS = LEVEL_TOPICS;
+window.QUESTION_BANK = QUESTION_BANK;
+window.getRole = getRole;
+window.getLevelRules = getLevelRules;
+window.getRoundQuestions = getRoundQuestions;
+
 // Audio is offline-only. Every call site below routes through src/audio.js
 // so the local pipeline can be swapped in without touching view code.
 function stopActiveSpeechRecognition() {
@@ -355,8 +489,8 @@ function viewLanding() {
           </div>
           <div class="feature-box scroll-reveal-item">
             <div class="feature-icon-wrapper purple"><i data-lucide="users"></i></div>
-            <h3>Spoken System Design Round</h3>
-            <p>Talk through a design end to end. Scored on trade-offs, bottlenecks, and how clearly you reason aloud.</p>
+            <h3>Spoken Technical Round</h3>
+            <p>Talk through concepts and technical details end to end. Scored on mechanisms, trade-offs, and clarity.</p>
           </div>
           <div class="feature-box scroll-reveal-item">
             <div class="feature-icon-wrapper"><i data-lucide="pie-chart"></i></div>
@@ -777,7 +911,7 @@ function viewSetupWizard() {
         <div class="mode-card ${setupData.mode === 'full' ? 'selected' : ''}" onclick="selectMode('full')">
           <div class="setup-option-icon"><i data-lucide="trophy"></i></div>
           <h4>Full Interview</h4>
-          <p>Both rounds: Behavioral → System Design.</p>
+          <p>Both rounds: Behavioral → Technical.</p>
         </div>
         <div class="mode-card ${q ? 'selected' : ''}" onclick="selectMode('quick')">
           <div class="setup-option-icon"><i data-lucide="zap"></i></div>
@@ -786,7 +920,7 @@ function viewSetupWizard() {
         </div>
       </div>
       ${q ? `<div class="quick-round-row">
-        ${["behavioral", "systemDesign"].map(r => `<button class="round-chip ${setupData.quickRound === r ? 'selected' : ''}" onclick="selectQuickRound('${r}')">${r === 'behavioral' ? 'Behavioral' : 'System Design'}</button>`).join("")}
+        ${["behavioral", "systemDesign"].map(r => `<button class="round-chip ${setupData.quickRound === r ? 'selected' : ''}" onclick="selectQuickRound('${r}')">${r === 'behavioral' ? 'Behavioral' : 'Technical'}</button>`).join("")}
       </div>` : ''}`;
   }
 
@@ -816,7 +950,7 @@ function viewSetupWizard() {
           return `<div class="level-card level-${r.color} ${setupData.level === lv ? 'selected' : ''}" onclick="selectLevelCard('${lv}')">
             <div class="level-card-head"><span class="level-badge level-${r.color}">${r.label}</span><span class="level-card-tag">${r.tag}</span></div>
             <p class="level-card-topics">${t}</p>
-            <div class="level-card-meta">${r.behavioralCount} Behavioral Qs · ${r.systemDesignCount} System Design · pass ≥ ${r.pass}%</div>
+            <div class="level-card-meta">${r.behavioralCount} Behavioral Qs · ${r.technicalCount || r.systemDesignCount} Technical · pass ≥ ${r.pass}%</div>
           </div>`;
         }).join("")}
       </div>`;
@@ -838,7 +972,7 @@ function viewSetupWizard() {
     const role = getRole(setupData.roleId);
     const r = LEVEL_RULES[setupData.level];
     const rounds = setupData.mode === "full" ? ["behavioral", "systemDesign"] : [setupData.quickRound];
-    const roundNames = rounds.map(rt => rt === 'behavioral' ? `Behavioral (${r.behavioralCount} Qs)` : `System Design (${r.systemDesignCount})`).join(" → ");
+    const roundNames = rounds.map(rt => rt === 'behavioral' ? `Behavioral (${r.behavioralCount} Qs)` : `Technical (${r.technicalCount || r.systemDesignCount} Qs)`).join(" → ");
     const row = (k, v) => `<div class="confirm-row"><span>${k}</span><strong>${v}</strong></div>`;
     return `<h3 class="setup-step-title">5. Confirm</h3>
       ${row("Mode", setupData.mode === 'full' ? 'Full Interview' : 'Quick Practice')}
@@ -876,7 +1010,7 @@ function viewSetupWizard() {
 // =====================================================================
 function roundCategoryLabel(type, role) {
   if (type === "behavioral") return "Behavioral";
-  return "System Design";
+  return "Technical";
 }
 
 async function startInterviewSession(setup) {
@@ -946,7 +1080,7 @@ function beginRound(i) {
   s.lastBaseAnswerText = "";
   s.probeUsed = false;
   // Round-wide cap: at most 1 probe follow-up per round (Behavioral and
-  // System Design each get their own counter simply by virtue of this
+  // Technical each get their own counter simply by virtue of this
   // resetting every time a round begins).
   s.roundProbeCount = 0;
   s.timeRemaining = type === "behavioral" ? rules.behavioralTimer : rules.systemDesignTimer;
@@ -995,7 +1129,7 @@ async function gradeAnswers(answers, roundType) {
     try {
       const g = await LLM.evaluate({
         question: ans.question, userAnswer: ans.userAnswer, modelAnswer: ans.modelAnswer,
-        category: roundType === "systemDesign" ? "System Design" : "Behavioral"
+        category: (roundType === "technical" || roundType === "systemDesign") ? "Technical" : "Behavioral"
       });
       out.push({ question: ans.question, userAnswer: ans.userAnswer, score: g.score,
         strengths: g.strengths || [], improvements: g.improvements || [],
@@ -1301,6 +1435,7 @@ const SLOT_DEFINITIONS = {
     }
   ]
 };
+SLOT_DEFINITIONS.technical = SLOT_DEFINITIONS.systemDesign;
 
 function getSlotStatus(text, filledKeywords, vagueKeywords) {
   const t = (text || "").toLowerCase();
@@ -1324,7 +1459,7 @@ function getSlotStatus(text, filledKeywords, vagueKeywords) {
 }
 
 function isTechnicalQuestion(q, roundType) {
-  if (!q) return roundType === "systemDesign";
+  if (!q) return roundType === "technical" || roundType === "systemDesign";
   
   // 1. Primary check: use the 'shape' property matching STAR or Technical
   if (q.shape) {
@@ -1344,7 +1479,7 @@ function isTechnicalQuestion(q, roundType) {
   if (text.includes("design") || text.includes("architecture") || text.includes("difference between") || text.includes("scaling") || text.includes("what does")) return true;
   
   // 4. Default fallback: round type
-  return roundType === "systemDesign";
+  return roundType === "technical" || roundType === "systemDesign";
 }
 
 function drawLiveStateCard() {
@@ -1503,7 +1638,7 @@ async function evaluateAndMaybeProbe(userAnswer) {
   if (!session) return;
 
   const q = session.questions[session.currentQuestionIndex];
-  const category = session.roundType === "systemDesign" ? "System Design" : "Behavioral";
+  const category = (session.roundType === "technical" || session.roundType === "systemDesign") ? "Technical" : "Behavioral";
   // A probe follow-up is always evaluated as probeUsed:true so it can only
   // resolve to step_down (never loop back into another "probe").
   const probeUsedForCall = q.isProbeFollowUp ? true : session.probeUsed;
@@ -1591,10 +1726,17 @@ window.submitInterviewAnswer = async function() {
       // Force follow-up injection if we found an incomplete slot
       if (session.probedSlot) {
         if (isSD) {
-          const slotName = slots.find(s => s.id === session.probedSlot).name;
+          const slotObj = slots.find(s => s.id === session.probedSlot);
+          const slotName = slotObj ? slotObj.name : session.probedSlot;
+          const probeKey = `${session.probedSlot}_missing`;
+          const probeVagueKey = `${session.probedSlot}_vague`;
+          const probeFromBank = currentQ.probes && (currentQ.probes[probeKey] || currentQ.probes[probeVagueKey]);
+
+          const followUpText = probeFromBank || `You gave a technical explanation, but the ${slotName} aspect was unclear. Can you expand on ${slotName} and the details surrounding it?`;
+
           const followUpQ = {
-            id: "followup-sd",
-            text: `You explained the system design, but the ${slotName} aspect was unclear. Can you expand on the ${slotName} and the details surrounding it?`,
+            id: "followup-tech",
+            text: followUpText,
             category: "Adaptive Follow-up",
             hint: `Add details for the missing slot: ${slotName}.`,
             modelAnswer: `Detailed explanation covering the slot ${slotName}.`
@@ -1920,9 +2062,9 @@ function viewResults() {
       <div class="card">
         <h3 style="font-size:18px; margin-bottom:16px;">Per-Round Scores</h3>
         <div class="round-score-grid">
-          ${["behavioral", "systemDesign"].filter(rt => report.roundScores[rt]).map(rt => {
+          ${["behavioral", "systemDesign", "technical"].filter(rt => report.roundScores[rt]).map(rt => {
             const v = report.roundScores[rt];
-            const label = rt === 'systemDesign' ? 'System Design' : 'Behavioral';
+            const label = (rt === 'systemDesign' || rt === 'technical') ? 'Technical' : 'Behavioral';
             const detail = v.skipped ? 'Skipped' : '';
             return `<div class="round-score-card">
               <span class="round-score-label">${label}</span>
@@ -2181,11 +2323,11 @@ function levelBadgeHtml(level) {
   return `<span class="level-badge level-${r.color}">${r.label}</span>`;
 }
 
-// Per-round score pills (BEH / SYS) from persisted roundScores JSON.
+// Per-round score pills (BEH / TECH) from persisted roundScores JSON.
 function roundPillsHtml(roundScores) {
   if (!roundScores) return `<span style="color:var(--text-light); font-size:12px;">—</span>`;
-  const labels = { behavioral: "BEH", systemDesign: "SYS" };
-  const pills = ["behavioral", "systemDesign"]
+  const labels = { behavioral: "BEH", systemDesign: "TECH", technical: "TECH" };
+  const pills = ["behavioral", "systemDesign", "technical"]
     .filter(rt => roundScores[rt])
     .map(rt => {
       const v = roundScores[rt];
@@ -2244,10 +2386,10 @@ function viewAnalytics() {
 
         <!-- Chart 3: Round Comparison -->
         <div class="card" style="min-height: 320px;">
-          <h3 style="font-size:16px; margin-bottom:6px;">Round Comparison — Behavioral vs System Design</h3>
+          <h3 style="font-size:16px; margin-bottom:6px;">Round Comparison — Behavioral vs Technical</h3>
           <div class="chart-legend">
             <span><i style="background:var(--primary)"></i>Behavioral</span>
-            <span><i style="background:var(--success)"></i>System Design</span>
+            <span><i style="background:var(--success)"></i>Technical</span>
           </div>
           <div class="chart-container" style="height:220px;">
             <canvas id="analytics-round-chart"></canvas>
@@ -2394,16 +2536,19 @@ function drawLevelProgressionChart(canvasId) {
   drawBarChart(canvasId, items);
 }
 
-// Chart 3 — Behavioral / System Design score trend across sessions (chronological).
+// Chart 3 — Behavioral / Technical score trend across sessions (chronological).
 function drawRoundComparisonChart(canvasId) {
   let chrono = [...APP_STATE.history].reverse().filter(h => h.roundScores);
   if (chrono.length > 15) {
     chrono = chrono.slice(chrono.length - 15);
   }
-  const pick = (h, rt) => (h.roundScores[rt] && !h.roundScores[rt].skipped) ? h.roundScores[rt].score : null;
+  const pick = (h, rt) => {
+    const obj = h.roundScores[rt] || (rt === "technical" ? h.roundScores["systemDesign"] : null);
+    return (obj && !obj.skipped) ? obj.score : null;
+  };
   const series = [
     { color: "var(--primary)", points: chrono.map(h => pick(h, "behavioral")) },
-    { color: "var(--success)", points: chrono.map(h => pick(h, "systemDesign")) }
+    { color: "var(--success)", points: chrono.map(h => pick(h, "technical")) }
   ];
   drawLineSeriesChart(canvasId, series, chrono.length);
 }
@@ -2413,7 +2558,7 @@ function renderFocusHeatmap(containerId) {
   const el = document.getElementById(containerId);
   if (!el) return;
   const levels = ["easy", "medium", "advanced"];
-  const rounds = [["behavioral", "Behavioral"], ["systemDesign", "System Design"]];
+  const rounds = [["behavioral", "Behavioral"], ["technical", "Technical"], ["systemDesign", "Technical"]];
   const bucket = {}; // key `${level}|${round}` -> [scores]
   APP_STATE.history.forEach(h => {
     if (!h.roundScores) return;
@@ -2566,7 +2711,7 @@ async function loadExternalQuestions() {
     if (!response.ok) throw new Error("Failed to load interview_questions.json");
     const data = await response.json();
     populateQuestionBank(data);
-    console.log("Successfully loaded external questions from interview_questions.json");
+    console.log("Successfully loaded questions directly from interview_questions.json");
   } catch (err) {
     console.error("Failed to fetch interview questions:", err);
   }
@@ -2579,43 +2724,52 @@ function populateQuestionBank(data) {
     "moderate": "medium",
     "hard": "advanced"
   };
-  
-  for (const domain in data.domains) {
-    if (!QUESTION_BANK[domain]) {
-      QUESTION_BANK[domain] = {
-        easy: { behavioral: [], systemDesign: [] },
-        medium: { behavioral: [], systemDesign: [] },
-        advanced: { behavioral: [], systemDesign: [] }
+
+  for (const domainKey in data.domains) {
+    const roleId = DOMAIN_TO_ROLE_MAP[domainKey] || domainKey;
+    if (!QUESTION_BANK[roleId]) {
+      QUESTION_BANK[roleId] = {
+        easy: { behavioral: [], systemDesign: [], technical: [] },
+        medium: { behavioral: [], systemDesign: [], technical: [] },
+        advanced: { behavioral: [], systemDesign: [], technical: [] }
       };
     }
-    
-    data.domains[domain].forEach(q => {
+
+    const questions = data.domains[domainKey];
+    questions.forEach(q => {
       const level = diffMap[q.difficulty] || "easy";
-      const qText = q.question || q.text;
-      const qHint = q.hint || (q.expected_answer_length_sec ? `Target duration: ${q.expected_answer_length_sec}s.` : "");
-      
-      let qModelAnswer = "";
-      if (q.reference_answers) {
-        qModelAnswer = q.reference_answers.score_9 || q.reference_answers.score_6 || "";
+      const shape = q.shape || "Technical";
+
+      let hint = "";
+      if (shape === "STAR") {
+        hint = "Structure your response using STAR (Situation, Task, Action, Result). Highlight your specific contribution and measurable outcomes.";
       } else {
-        qModelAnswer = q.modelAnswer || "";
+        const probes = q.probes || {};
+        const hintParts = Object.values(probes).filter(v => v);
+        hint = hintParts.length ? hintParts.slice(0, 2).join(" ") : "Explain the core concepts, mechanisms, trade-offs, and practical considerations.";
       }
-      
+
+      const modelAnswer = (q.reference_answers && q.reference_answers.score_9) ? q.reference_answers.score_9 : (q.modelAnswer || "");
+
       const mappedQ = {
         id: q.id,
-        text: qText,
-        hint: qHint,
-        modelAnswer: qModelAnswer,
-        shape: q.shape,
+        text: q.question || q.text,
+        hint: hint,
+        modelAnswer: modelAnswer,
+        shape: shape,
         difficulty: q.difficulty,
-        probes: q.probes
+        probes: q.probes || {}
       };
-      
-      const round = q.shape === "STAR" ? "behavioral" : "systemDesign";
-      
-      const existing = QUESTION_BANK[domain][level][round];
-      if (!existing.some(eq => eq.id === q.id)) {
-        existing.push(mappedQ);
+
+      const isBeh = (shape === "STAR" || domainKey === "hr");
+      if (isBeh) {
+        const existing = QUESTION_BANK[roleId][level]["behavioral"];
+        if (!existing.some(eq => eq.id === q.id)) existing.push(mappedQ);
+      } else {
+        const existingTech = QUESTION_BANK[roleId][level]["technical"];
+        if (!existingTech.some(eq => eq.id === q.id)) existingTech.push(mappedQ);
+        const existingSD = QUESTION_BANK[roleId][level]["systemDesign"];
+        if (!existingSD.some(eq => eq.id === q.id)) existingSD.push(mappedQ);
       }
     });
   }

@@ -18,8 +18,7 @@
 
 <br/>
 
-**[Watch the demo](#-see-it-work) · [How it works](#-how-it-actually-works) · [Quickstart](#-quickstart) · [What we learned](#-what-broke-and-what-it-taught-us)**
-
+**[Watch the demo](https://www.youtube.com/watch?v=vOj-5jHPkcM)**
 </div>
 
 ---

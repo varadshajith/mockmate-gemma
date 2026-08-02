@@ -505,7 +505,7 @@ function viewLanding() {
       <nav class="landing-nav">
         <a href="#/landing" class="sidebar-brand">
           <div class="brand-logo"><i data-lucide="sparkles"></i></div>
-          <span class="brand-name">Interview <span class="accent-text">Coach</span></span>
+          <span class="brand-name">MockMate <span class="accent-text">Gemma</span></span>
         </a>
         <div class="landing-nav-links">
           <a href="#features">Features</a>
@@ -599,7 +599,7 @@ function viewLanding() {
           <div class="step-card scroll-reveal-item">
             <div class="step-number">3</div>
             <h3>Detailed AI Evaluation</h3>
-            <p>Examine scoring charts, radar parameters, strengths breakdown, and ideal answers.</p>
+            <p>Examine criteria-level scoring rubrics, constructive feedback highlights, model answer comparisons, and progress charts.</p>
           </div>
         </div>
       </section>
@@ -639,7 +639,7 @@ function viewLanding() {
       <footer class="landing-footer">
         <div class="footer-content">
           <div class="footer-brand">
-            <h3>Interview Coach</h3>
+            <h3>MockMate <span class="accent-text">Gemma</span></h3>
             <p>Build placement readiness and confidence.</p>
           </div>
           <div class="footer-links">
@@ -1134,10 +1134,8 @@ function viewSetupWizard() {
             <div class="selected-check"><i data-lucide="check"></i></div>
             <div class="role-card-icon"><i data-lucide="${r.icon}"></i></div>
             <h4>${r.name}</h4>
-            <span class="role-card-tag">${r.authored ? 'Full bank' : 'Preview'}</span>
           </div>`).join("")}
-      </div>
-      <p class="role-grid-note">Roles marked “Preview” reuse a closely-related role's questions until their own bank is authored.</p>`;
+      </div>`;
   }
 
   function renderLevelStep() {

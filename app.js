@@ -1134,10 +1134,8 @@ function viewSetupWizard() {
             <div class="selected-check"><i data-lucide="check"></i></div>
             <div class="role-card-icon"><i data-lucide="${r.icon}"></i></div>
             <h4>${r.name}</h4>
-            <span class="role-card-tag">${r.authored ? 'Full bank' : 'Preview'}</span>
           </div>`).join("")}
-      </div>
-      <p class="role-grid-note">Roles marked “Preview” reuse a closely-related role's questions until their own bank is authored.</p>`;
+      </div>`;
   }
 
   function renderLevelStep() {
@@ -1526,6 +1524,9 @@ function viewInterview() {
               <i data-lucide="volume-2" style="width:16px; height:16px; vertical-align:middle;"></i> Replay
             </button>
           ` : ''}
+          <button class="btn btn-secondary" onclick="addInterviewTime()" title="Add 30 seconds to this round" style="padding: 8px 12px; display: flex; align-items: center; gap: 6px; font-size: 13.5px;">
+            <i data-lucide="plus" style="width:16px; height:16px; vertical-align:middle;"></i> 30s
+          </button>
           <div class="timer-box" id="interview-timer" style="margin:0;">
             <i data-lucide="clock"></i>
             <span id="timer-text">--:--</span>
@@ -3170,6 +3171,20 @@ window.toggleSpeechToText = function() {
     }
     resetVoiceButton();
   }, renderLiveTranscript);
+};
+
+// Extends the current round's clock. The countdown interval reads
+// timeRemaining every tick, so bumping the value is enough — no need to
+// restart it. Only reachable while the round is running; once the timer
+// hits 0 the interval is cleared and the view is gone.
+const EXTRA_TIME_SECONDS = 30;
+
+window.addInterviewTime = function() {
+  const session = APP_STATE.currentInterview;
+  if (!session) return;
+  session.timeRemaining += EXTRA_TIME_SECONDS;
+  updateTimerDisplay();
+  showToast(`+${EXTRA_TIME_SECONDS}s added to this round.`, "info");
 };
 
 window.replayQuestionAudio = function() {

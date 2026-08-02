@@ -3290,7 +3290,7 @@ body.dark-theme .dropdown-item:hover {
 .role-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
 .role-card.selected { border-color: var(--primary); background: var(--primary-light); }
 .role-card-icon { display: flex; justify-content: center; margin-bottom: 8px; color: var(--primary); }
-.role-card h4 { font-size: 13px; margin-bottom: 6px; line-height: 1.25; }
+.role-card h4 { font-size: 13px; margin-bottom: 0; line-height: 1.25; }
 .role-card-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-light); }
 .role-card .selected-check { position: absolute; top: 8px; right: 8px; opacity: 0; color: var(--primary); }
 .role-card.selected .selected-check { opacity: 1; }

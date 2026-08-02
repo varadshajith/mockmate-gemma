@@ -169,7 +169,7 @@ button {
 }
 
 .brand-name .accent-text {
-  color: var(--primary);
+  color: #3b82f6; /* Accent Blue */
 }
 
 .sidebar-nav {

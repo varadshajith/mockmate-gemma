@@ -18,7 +18,7 @@
 
 <br/>
 
-**[Watch the demo](https://www.youtube.com/watch?v=vOj-5jHPkcM)**
+**[Watch the demo](https://youtu.be/uGguoimej4w)**
 </div>
 
 ---
